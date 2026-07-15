@@ -148,7 +148,14 @@ export default function ConsultationPage() {
       const data = await startSession()
       setSessionId(data.session_id)
       localStorage.setItem('mb_session_id', data.session_id)
-      setMessages([{ role: 'assistant', content: "Hello. I'm here for you. Would you like to talk about what's been on your mind?" }])
+      
+      const currentLang = localStorage.getItem('mb_language') || 'en-IN'
+      let welcomeMsg = "Hello. I'm here for you. Would you like to talk about what's been on your mind?"
+      if (currentLang === 'hi-IN') welcomeMsg = "नमस्ते। मैं आपके लिए यहाँ हूँ। क्या आप बताना चाहेंगे कि आपके मन में क्या चल रहा है?"
+      if (currentLang === 'ta-IN') welcomeMsg = "வணக்கம். நான் உங்களுக்காக இங்கே இருக்கிறேன். உங்கள் மனதில் என்ன இருக்கிறது என்பதைப் பற்றி பேச விரும்புகிறீர்களா?"
+      if (currentLang === 'te-IN') welcomeMsg = "నమస్కారం. నేను మీ కోసం ఇక్కడ ఉన్నాను. మీ మనసులో ఏముందో మాట్లాడాలనుకుంటున్నారా?"
+      
+      setMessages([{ role: 'assistant', content: welcomeMsg }])
     } catch {
       router.replace('/')
     } finally {

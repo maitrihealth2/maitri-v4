@@ -134,10 +134,13 @@ async def handle_voice_turn(
     lang_prompt = get_language_prompt(language)
     lang_prompt += " Keep your response conversational and natural, as this is a real-time voice call. Provide clear reasoning if needed."
 
-    past = db.query(Message).filter(
-        Message.session_id == session.id
-    ).order_by(Message.created_at).all()
-    history = [{"role": m.role, "content": m.content} for m in past[-20:]]
+    # Fetch last 30 messages across all sessions for this user for cross-session memory
+    past = db.query(Message).join(DBSession, Message.session_id == DBSession.id).filter(
+        DBSession.user_id == current_user.id
+    ).order_by(Message.created_at.desc()).limit(30).all()
+    past.reverse()
+    
+    history = [{"role": m.role, "content": m.content} for m in past]
     history.append({"role": "user", "content": transcript})
     
     # Bypass Context Analysis for voice turns to save latency
@@ -157,7 +160,7 @@ async def handle_voice_turn(
         rag_context=rag_context,
         analyst_insight=analyst_insight,
         language_prompt=lang_prompt,
-        max_tokens=500,
+        max_tokens=1500,
         reasoning_effort=None,
         user_emotion=heuristic_emotion.label,
     )

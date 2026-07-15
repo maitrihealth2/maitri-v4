@@ -28,6 +28,7 @@ export default function VoiceModePage() {
   const audioCtxRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const maxDurationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isListeningRef = useRef(false)
   const isSpeakingRef = useRef(false)
   const isAssistantSpeakingRef = useRef(false)
@@ -282,6 +283,7 @@ export default function VoiceModePage() {
   const stopVoice = () => {
     isListeningRef.current = false
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+    if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.onstop = null
@@ -323,6 +325,11 @@ export default function VoiceModePage() {
       }
       recorder.start(250)
       mediaRecorderRef.current = recorder
+
+      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
+      maxDurationTimerRef.current = setTimeout(() => {
+        if (isListeningRef.current) flushChunk()
+      }, 28000)
     } catch (e) {
       console.error(e)
     }
@@ -384,6 +391,10 @@ export default function VoiceModePage() {
   }
 
   const flushChunk = () => {
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current)
+      maxDurationTimerRef.current = null
+    }
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state === 'inactive') return
     recorder.stop()

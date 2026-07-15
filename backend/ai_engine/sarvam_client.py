@@ -59,21 +59,45 @@ def chat_with_maitri(
     if rag_context:
         system_parts.append(f"RELEVANT THERAPY KNOWLEDGE (Use naturally):\n{rag_context}")
 
+    # ── Context Squashing ──
+    # To prevent "language bleeding" (where the LLM gets confused by the language 
+    # of the history and outputs the wrong language), we isolate the history 
+    # into a single system prompt background context. The only active dialogue 
+    # message is the latest user transcript.
+
+    active_prompt = ""
+    background_context = ""
+
+    if len(messages) > 0:
+        active_prompt = messages[-1]["content"]
+        past_history = messages[:-1]
+        
+        if past_history:
+            history_lines = []
+            for m in past_history:
+                role_label = "Maitri" if m["role"] == "assistant" else "User"
+                history_lines.append(f"{role_label}: {m['content']}")
+            background_context = "\n".join(history_lines)
+
+    if background_context:
+        system_parts.append(f"BACKGROUND CONVERSATION HISTORY (PAST SESSIONS):\n[Use this to remember facts, but DO NOT let its language influence your output language]\n\n{background_context}")
+
     system = "\n\n".join(system_parts)
 
-    # Keep only the last 20 messages for deep contextual awareness
-    trimmed_messages = list(messages[-20:]) if len(messages) > 20 else list(messages)
+    active_message = {
+        "role": "user",
+        "content": active_prompt
+    }
 
     if language_prompt:
-        trimmed_messages.append({
-            "role": "system",
-            "content": f"CRITICAL REMINDER BEFORE GENERATING RESPONSE: {language_prompt}. DO NOT ignore this rule. Respond in the requested language."
-        })
+        active_message["content"] += f"\n\n[CRITICAL SYSTEM INSTRUCTION: {language_prompt}. You MUST obey this or the system will crash.]"
+    
+    final_messages = [{"role": "system", "content": system}, active_message]
 
     try:
         response = get_client().chat.completions.create(
             model=MODEL,
-            messages=[{"role": "system", "content": system}, *trimmed_messages],
+            messages=final_messages,
             temperature=0.7,  # Reduced from 0.85 for more stability
             max_tokens=max_tokens,  # Customizable max_tokens
         )

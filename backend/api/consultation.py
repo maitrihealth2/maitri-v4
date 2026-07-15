@@ -93,11 +93,13 @@ async def send_message(
     rag_context = retrieve_context(req.message) if RAG_AVAILABLE else ""
     lang_prompt = get_language_prompt(req.language)
 
-    past = db.query(Message).filter(
-        Message.session_id == session.id
-    ).order_by(Message.created_at).all()
-    # Fetch last 20 messages for deep context
-    history = [{"role": m.role, "content": m.content} for m in past[-20:]]
+    # Fetch last 30 messages across all sessions for this user for cross-session memory
+    past = db.query(Message).join(DBSession, Message.session_id == DBSession.id).filter(
+        DBSession.user_id == current_user.id
+    ).order_by(Message.created_at.desc()).limit(30).all()
+    past.reverse()
+    
+    history = [{"role": m.role, "content": m.content} for m in past]
     history.append({"role": "user", "content": req.message})
 
     # Start tasks concurrently

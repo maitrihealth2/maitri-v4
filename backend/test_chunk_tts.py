@@ -1,21 +1,10 @@
-"""
-Sarvam Voice Client — Phase 3 Multi-language
-STT: Saarika v2.5 — converts browser audio via ffmpeg → 16kHz WAV → Sarvam
-TTS: Bulbul v1    — native voices per language
-"""
-
+import asyncio
 import os
+from dotenv import load_dotenv
 import httpx
 import base64
-import subprocess
-import tempfile
-from dotenv import load_dotenv
-import pathlib
 
-_BASE = pathlib.Path(__file__).resolve().parent.parent
-load_dotenv(_BASE / ".env")
-load_dotenv(_BASE / ".env.local", override=True)
-
+load_dotenv(".env")
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
 BASE_URL = "https://api.sarvam.ai"
 
@@ -25,116 +14,8 @@ SUPPORTED_LANGUAGES = {
         "stt_code": "en-IN",
         "tts_speaker_female": "ritu",
         "tts_speaker_male": "shubh",
-    },
-    "hi-IN": {
-        "name": "Hindi", "native": "हिंदी",
-        "stt_code": "hi-IN",
-        "tts_speaker_female": "simran",
-        "tts_speaker_male": "shubh",
-    },
-    "ta-IN": {
-        "name": "Tamil", "native": "தமிழ்",
-        "stt_code": "ta-IN",
-        "tts_speaker_female": "kavitha",
-        "tts_speaker_male": "mani",
-    },
-    "te-IN": {
-        "name": "Telugu", "native": "తెలుగు",
-        "stt_code": "te-IN",
-        "tts_speaker_female": "suhani",
-        "tts_speaker_male": "vijay",
-    },
+    }
 }
-
-LANGUAGE_PROMPTS = {
-    "en-IN": "YOUR OUTPUT LANGUAGE IS: ENGLISH. You are strictly required to reply in English. Respond in a warm, natural tone. Speak in short, naturally flowing sentences.",
-    "hi-IN": "YOUR OUTPUT LANGUAGE IS: HINDI (हिंदी). You are strictly required to reply in Hindi. Respond in a warm, friendly tone. Speak in short, naturally flowing sentences.",
-    "ta-IN": "YOUR OUTPUT LANGUAGE IS: TAMIL (தமிழ்). You are strictly required to reply in Tamil. Respond in a warm, friendly tone. Speak in short, naturally flowing sentences.",
-    "te-IN": "YOUR OUTPUT LANGUAGE IS: TELUGU (తెలుగు). You are strictly required to reply in Telugu. Respond in a warm, friendly tone. Speak in short, naturally flowing sentences.",
-}
-
-
-def convert_to_wav(audio_bytes: bytes) -> bytes:
-    """Convert browser audio to 16kHz mono WAV using ffmpeg."""
-    import uuid
-    import imageio_ffmpeg
-    
-    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    # Use project-local tmp/ to avoid space issues in Windows User paths
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tmp_dir = os.path.join(base_dir, "tmp")
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir, exist_ok=True)
-    
-    uid = uuid.uuid4().hex
-    input_path = os.path.join(tmp_dir, f"mb_in_{uid}.webm")
-    output_path = os.path.join(tmp_dir, f"mb_out_{uid}.wav")
-    
-    try:
-        with open(input_path, "wb") as f:
-            f.write(audio_bytes)
-            f.flush()
-            os.fsync(f.fileno())
-        
-        print(f"[ffmpeg] input={input_path} size={os.path.getsize(input_path)}")
-        
-        # Explicit shell=False (default) with list is usually best, 
-        # but ffmpeg on Windows can be picky about absolute paths.
-        result = subprocess.run(
-            [ffmpeg_exe, "-y", "-i", input_path, "-t", "29.5", "-ar", "16000", "-ac", "1", "-f", "wav", output_path],
-            capture_output=True, text=True,
-        )
-        
-        if result.returncode != 0:
-            print(f"[ffmpeg stderr]: {result.stderr}")
-            raise RuntimeError(f"ffmpeg conversion failed: {result.stderr[-200:]}")
-            
-        with open(output_path, "rb") as f:
-            wav_bytes = f.read()
-            
-        print(f"[STT] ffmpeg converted {len(audio_bytes)} -> {len(wav_bytes)} bytes WAV")
-        return wav_bytes
-        
-    finally:
-        # Cleanup
-        for p in [input_path, output_path]:
-            try:
-                if os.path.exists(p): os.unlink(p)
-            except Exception as e:
-                print(f"[STT] Cleanup error for {p}: {e}")
-
-async def transcribe_audio(audio_bytes: bytes, language: str = "en-IN") -> str:
-    """
-    Convert browser audio to text via Sarvam Saarika v2.5.
-    Converts to proper WAV first using ffmpeg.
-    """
-    lang_config = SUPPORTED_LANGUAGES.get(language, SUPPORTED_LANGUAGES["en-IN"])
-    stt_code = lang_config["stt_code"]
-
-    # Convert to clean WAV
-    wav_bytes = convert_to_wav(audio_bytes)
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            f"{BASE_URL}/speech-to-text",
-            headers={"api-subscription-key": SARVAM_API_KEY},
-            files={"file": ("recording.wav", wav_bytes, "audio/wav")},
-            data={
-                "language_code": stt_code,
-                "model": "saarika:v2.5",
-                "with_timestamps": "false",
-            },
-        )
-
-    print(f"[STT] Response {response.status_code}: {response.text[:200]}")
-
-    if response.status_code != 200:
-        raise Exception(f"STT failed: {response.status_code} — {response.text}")
-
-    transcript = response.json().get("transcript", "").strip()
-    print(f"[STT] Transcript: '{transcript}'")
-    return transcript
-
 
 async def synthesize_speech(
     text: str,
@@ -168,7 +49,7 @@ async def synthesize_speech(
     text = re.sub(r'\.{2,}', '.', text)   # Replace ... with a single period
     text = re.sub(r'[*_#~`]', '', text)   # Remove markdown artifacts
     text = text.replace('  ', ' ').strip()
-
+    
     if not text:
         return b""
 
@@ -180,7 +61,7 @@ async def synthesize_speech(
     for sentence in sentences:
         if not sentence.strip():
             continue
-        # If a single sentence is > 400 chars, we must split it by words
+        # If a single sentence is > 400 chars, we must split it by words or commas
         if len(sentence) > 400:
             words = sentence.split(' ')
             for word in words:
@@ -202,7 +83,6 @@ async def synthesize_speech(
 
     import wave
     import io
-    import base64
     wav_bytes_list = []
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -262,13 +142,9 @@ async def synthesize_speech(
         print(f"[TTS] Error concatenating wavs, returning first chunk: {e}")
         return wav_bytes_list[0]
 
+async def test():
+    text = "Hello there. " * 80
+    res = await synthesize_speech(text)
+    print("SUCCESS", len(res))
 
-def get_language_prompt(language: str) -> str:
-    return LANGUAGE_PROMPTS.get(language, LANGUAGE_PROMPTS["en-IN"])
-
-
-def get_supported_languages() -> dict:
-    return {
-        code: {"name": v["name"], "native": v["native"]}
-        for code, v in SUPPORTED_LANGUAGES.items()
-    }
+asyncio.run(test())
