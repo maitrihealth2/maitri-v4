@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { startSession, sendVoiceMessage, getTranscript } from '../../lib/api'
 import { useMitraStore } from '../../stores/mitraStore'
+import ExerciseOverlay from '../../components/ExerciseOverlay'
 
 type ConvState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
@@ -31,6 +32,7 @@ export default function VoiceModePage() {
   
   const [langMenuOpen, setLangMenuOpen] = useState(false)
   const [mainMenuOpen, setMainMenuOpen] = useState(false)
+  const [exerciseMode, setExerciseMode] = useState<string | null>(null)
   const [currentLang, setCurrentLang] = useState<'en'|'hi'|'te'|'ta'>('en')
 
   const initialized = useRef(false)
@@ -225,11 +227,31 @@ export default function VoiceModePage() {
       if (data.transcript && data.transcript !== "[Silence]") {
         setUserTranscript(data.transcript)
       }
+      
+      let match = null
       if (data.response) {
-        setAgentResponse(data.response)
+        let cleanResponse = data.response
+        match = cleanResponse.match(/\[EXERCISE:\s*(.*?)\]/i)
+        if (match) {
+          setExerciseMode(match[1].toUpperCase())
+          cleanResponse = cleanResponse.replace(/\[EXERCISE:\s*(.*?)\]/gi, '').trim()
+          
+          if (!isPaused) {
+             setIsPaused(true)
+             setConvState('paused')
+             mitraStore.setState('idle')
+             isListeningRef.current = false
+             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+               mediaRecorderRef.current.onstop = null
+               mediaRecorderRef.current.stop()
+             }
+          }
+        }
+        setAgentResponse(cleanResponse)
       }
       
-      if (data.audio_b64 && isListeningRef.current) {
+      if (data.audio_b64 && (isListeningRef.current || match)) {
         setConvState('speaking')
         mitraStore.setState('comforting')
         isAssistantSpeakingRef.current = true
@@ -455,7 +477,7 @@ export default function VoiceModePage() {
     setLangMenuOpen(false)
   }
 
-  const t = translations[currentLang]
+  const t = translations['en']
   let currentStatusText = t.statusListen
   if (convState === 'thinking') currentStatusText = t.statusThink
   else if (convState === 'speaking') currentStatusText = t.statusSpeak
@@ -470,6 +492,17 @@ export default function VoiceModePage() {
   
   return (
     <>
+      <ExerciseOverlay 
+        exerciseMode={exerciseMode} 
+        onClose={() => {
+          setExerciseMode(null)
+          setIsPaused(false)
+          setConvState('listening')
+          mitraStore.setState('listening')
+          isListeningRef.current = true
+          startChunk()
+        }} 
+      />
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes orb-breathe {
             0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(122, 74, 95, 0.2); }
