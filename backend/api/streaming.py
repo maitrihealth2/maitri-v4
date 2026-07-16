@@ -7,6 +7,8 @@ import traceback
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+from api.telemetry import broadcast_event
+
 import pathlib
 
 _BASE = pathlib.Path(__file__).resolve().parent.parent
@@ -73,6 +75,7 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
                             
                             if is_final:
                                 last_transcript = text
+                                await broadcast_event("STT_DONE", f"Transcribed text", {"text": text})
                                 
                             print(f"[Sarvam -> Browser] {text[:30]}... (final={is_final})")
                             await websocket.send_json({
@@ -95,6 +98,7 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
                         if msg["type"] == "audio":
                             if not config_sent: continue
                             await sarvam_ws.send(json.dumps({"audio": msg["data"]}))
+                            # Optionally add a throttled ROUTING event here, but might spam. Let's just do it on flush.
                             
                         elif msg["type"] == "flush":
                             # Trigger Full Turn Logic
@@ -109,6 +113,7 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
                             try:
                                 # Call the shared turn-taking logic
                                 lang = msg.get("language", "en-IN")
+                                await broadcast_event("ROUTING", "Client WebSocket -> FastAPI -> AI Brain")
                                 
                                 # Use a fresh DB session for the turn
                                 gen = get_db()

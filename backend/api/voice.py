@@ -18,6 +18,7 @@ from ai_engine.emotion_detector import detect_emotion, detect_emotion_heuristic
 from ai_engine.analyst import analyze_context
 from services.crisis_handler import check_for_crisis
 from api.auth import get_current_user
+from api.telemetry import broadcast_event
 
 try:
     from rag.retriever import retrieve_context, is_knowledge_base_ready
@@ -94,6 +95,8 @@ async def handle_voice_turn(
     if not transcript or not transcript.strip():
         print("[VOICE] Empty transcript — treating as silence to prompt user")
         transcript = "[Silence]"
+        
+    await broadcast_event("STT_DONE", f"Transcribed text", {"text": transcript})
 
     # ── Crisis check ──────────────────────────────────────────────────────────
     print(f"[VOICE] Crisis check...")
@@ -126,6 +129,7 @@ async def handle_voice_turn(
 
     # ── Emotion + LLM ────────────────────────────────────────────────────────
     print(f"[VOICE] Computing emotion heuristically and calling LLM...")
+    await broadcast_event("ROUTING", "STT Text -> AI Brain Cluster")
     
     # Bypass RAG completely for voice to save 1-2 seconds of latency
     rag_context = ""
@@ -166,6 +170,7 @@ async def handle_voice_turn(
     )
 
     try:
+        await broadcast_event("LLM_START", "AI Brain Cluster running...")
         ai_response = await llm_task
         
         # Await the deep-learning emotion result (enforcing a strict 1.0s timeout to prevent lag)
@@ -175,6 +180,9 @@ async def handle_voice_turn(
         except Exception as te:
             print(f"[VOICE] DL Emotion timeout/error ({type(te).__name__}), falling back to heuristic: {heuristic_emotion.label}")
             emotion = heuristic_emotion
+
+        await broadcast_event("EMOTION_DETECTED", f"Detected: {emotion.label}", {"emotion": emotion.label, "score": emotion.score})
+        await broadcast_event("LLM_DONE", "Response generated", {"response": ai_response})
 
         print(f"[VOICE] LLM response: '{ai_response[:80]}...'")
     except Exception as e:
@@ -200,12 +208,16 @@ async def handle_voice_turn(
     audio_b64 = ""
     try:
         # Reuse user's emotion to determine voice tone instead of calling HF API again
+        await broadcast_event("ROUTING", "LLM Text -> TTS API")
+        await broadcast_event("TTS_START", "Synthesizing voice...")
         response_audio = await synthesize_speech(
             ai_response, 
             language, 
             emotion=emotion.label
         )
         audio_b64 = base64.b64encode(response_audio).decode()
+        await broadcast_event("TTS_DONE", "Audio ready")
+        await broadcast_event("ROUTING", "FastAPI -> Client WebSocket Playback")
         print(f"[VOICE] TTS OK, audio size={len(response_audio)} bytes")
     except Exception as e:
         import traceback as tb
@@ -244,6 +256,8 @@ async def voice_conversation(
 
     # ── STT ───────────────────────────────────────────────────────────────────
     try:
+        await broadcast_event("ROUTING", "FastAPI -> Sarvam STT API")
+        await broadcast_event("STT_START", "Transcribing...")
         transcript = await transcribe_audio(audio_bytes, language)
     except Exception as e:
         import traceback as tb

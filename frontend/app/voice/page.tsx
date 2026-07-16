@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { startSession, sendVoiceMessage, getTranscript } from '../../lib/api'
 import { useMitraStore } from '../../stores/mitraStore'
 
@@ -9,19 +10,29 @@ type ConvState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
 const SILENCE_THRESHOLD = 0.05
 const SILENCE_MS = 3000
-const NUM_BARS = 64 // Increased for a smoother circle
+
+const translations = {
+  en: { statusSpeak: "MYTHRI IS SPEAKING", statusListen: "LISTENING", statusThink: "THINKING", statusMute: "MICROPHONE MUTED", statusPause: "PAUSED", titleListen: "I'm listening to you.", titleThink: "The Space Between Thoughts", titlePause: "Conversation Paused", titleIdle: "Mythri is resting" },
+  hi: { statusSpeak: "मैत्री बोल रही है", statusListen: "सुन रही है", statusThink: "सोच रही है", statusMute: "माइक्रोफोन म्यूट है", statusPause: "रुका हुआ", titleListen: "मैं आपको सुन रही हूँ।", titleThink: "विचारों के बीच की जगह", titlePause: "बातचीत रुकी हुई है", titleIdle: "मैत्री आराम कर रही है" },
+  te: { statusSpeak: "మైత్రి మాట్లాడుతోంది", statusListen: "వింటుంది", statusThink: "ఆలోచిస్తోంది", statusMute: "మైక్రోఫోన్ మ్యూట్ చేయబడింది", statusPause: "పాజ్ చేయబడింది", titleListen: "నేను వింటున్నాను.", titleThink: "ఆలోచనల మధ్య ఖాళీ", titlePause: "సంభాషణ పాజ్ చేయబడింది", titleIdle: "మైత్రి విశ్రాంతి తీసుకుంటోంది" },
+  ta: { statusSpeak: "மைத்ரி பேசுகிறார்", statusListen: "கேட்கிறது", statusThink: "சிந்திக்கிறது", statusMute: "மைக்ரோஃபோன் ஒலியடக்கப்பட்டது", statusPause: "இடைநிறுத்தப்பட்டது", titleListen: "நான் கேட்கிறேன்.", titleThink: "எண்ணங்களுக்கு இடையே உள்ள இடைவெளி", titlePause: "உரையாடல் இடைநிறுத்தப்பட்டது", titleIdle: "மைத்ரி ஓய்வெடுக்கிறார்" }
+}
 
 export default function VoiceModePage() {
   const router = useRouter()
   
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [convState, setConvState] = useState<ConvState>('idle')
+  const [convState, setConvState] = useState<ConvState>('listening')
   const [isMuted, setIsMuted] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  const [bars, setBars] = useState<number[]>(Array(NUM_BARS).fill(15))
+  
   const [userTranscript, setUserTranscript] = useState<string>('')
   const [agentResponse, setAgentResponse] = useState<string>('')
   
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const [mainMenuOpen, setMainMenuOpen] = useState(false)
+  const [currentLang, setCurrentLang] = useState<'en'|'hi'|'te'|'ta'>('en')
+
   const initialized = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -36,33 +47,27 @@ export default function VoiceModePage() {
   const animFrameRef = useRef<number>(0)
   const sessionIdRef = useRef<string | null>(null)
   const languageRef = useRef('en-IN')
+  const isMutedRef = useRef(false)
+  const activeAudioSourceRef = useRef<AudioBufferSourceNode | null>(null)
   
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const mitraStore = useMitraStore()
-
-  const [particles, setParticles] = useState<Array<{ id: number, delay: number, duration: number, size: number, opacity: number }>>([])
-
-  useEffect(() => {
-    setParticles(
-      Array.from({ length: 12 }).map((_, i) => ({
-        id: i,
-        delay: Math.random() * 5,
-        duration: 10 + Math.random() * 15,
-        size: 2 + Math.random() * 4,
-        opacity: 0.2 + Math.random() * 0.5
-      }))
-    )
-  }, [])
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : null
     if (!token) {
-      router.replace('/')
+      router.replace('/login')
       return
     }
 
     const handleLangChange = () => {
       const newLang = localStorage.getItem('mb_language') || 'en-IN'
       languageRef.current = newLang
+      if (newLang.startsWith('hi')) setCurrentLang('hi')
+      else if (newLang.startsWith('te')) setCurrentLang('te')
+      else if (newLang.startsWith('ta')) setCurrentLang('ta')
+      else setCurrentLang('en')
     }
     
     handleLangChange()
@@ -111,11 +116,10 @@ export default function VoiceModePage() {
       })
     }
     setIsMuted(nextMuted)
+    isMutedRef.current = nextMuted
 
     if (nextMuted) {
-      // Stop listening and force AI to respond immediately
       if (isListeningRef.current) {
-        isListeningRef.current = false
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current)
           silenceTimerRef.current = null
@@ -123,7 +127,10 @@ export default function VoiceModePage() {
         flushChunk()
       }
     } else {
-      // Resume listening
+      if (activeAudioSourceRef.current) {
+        activeAudioSourceRef.current.stop()
+        activeAudioSourceRef.current = null
+      }
       if (!isListeningRef.current && !isPaused) {
         isListeningRef.current = true
         setConvState('listening')
@@ -135,14 +142,12 @@ export default function VoiceModePage() {
 
   const togglePause = () => {
     if (isPaused) {
-      // Resume
       setIsPaused(false)
       setConvState('listening')
       mitraStore.setState('listening')
       isListeningRef.current = true
       startChunk()
     } else {
-      // Pause
       setIsPaused(true)
       setConvState('paused')
       mitraStore.setState('idle')
@@ -191,8 +196,8 @@ export default function VoiceModePage() {
     }
     if (!analyserRef.current) {
       const analyser = audioCtxRef.current.createAnalyser()
-      analyser.fftSize = 512
-      analyser.smoothingTimeConstant = 0.75
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.85
       const dummyGain = audioCtxRef.current.createGain()
       dummyGain.gain.value = 0
       analyser.connect(dummyGain)
@@ -224,29 +229,24 @@ export default function VoiceModePage() {
         setAgentResponse(data.response)
       }
       
-      if (data.emotion) {
-        mitraStore.setMood('bright')
-      }
-
       if (data.audio_b64 && isListeningRef.current) {
         setConvState('speaking')
         mitraStore.setState('comforting')
-        mitraStore.setMood('bright')
         isAssistantSpeakingRef.current = true
         
         await playWav(data.audio_b64)
         
         isAssistantSpeakingRef.current = false
-        mitraStore.setMood('warm')
       }
     } catch (e) {
       console.error(e)
     } finally {
-      if (isListeningRef.current && voiceSessionIdRef.current === currentVoiceSession) {
+      if (isListeningRef.current && voiceSessionIdRef.current === currentVoiceSession && !isMutedRef.current) {
         setConvState('listening')
         mitraStore.setState('listening')
         startChunk()
-      } else if (!isListeningRef.current && !isPaused) {
+      } else if (!isPaused) {
+        isListeningRef.current = false
         setConvState('idle')
         mitraStore.setState('idle')
       }
@@ -271,11 +271,17 @@ export default function VoiceModePage() {
       source.buffer = audioBuffer
       source.connect(analyser)
       source.connect(audioCtx.destination)
+      activeAudioSourceRef.current = source
       const playPromise = new Promise((resolve) => {
-        source.onended = () => { source.disconnect(); resolve(true) }
+        source.onended = () => { 
+          source.disconnect()
+          if (activeAudioSourceRef.current === source) {
+            activeAudioSourceRef.current = null
+          }
+          resolve(true) 
+        }
       })
       source.start(0)
-      startVisualizer()
       return playPromise
     } catch (err) { return Promise.resolve(false) }
   }
@@ -292,9 +298,14 @@ export default function VoiceModePage() {
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
     
+    if (activeAudioSourceRef.current) {
+      activeAudioSourceRef.current.stop()
+      activeAudioSourceRef.current.disconnect()
+      activeAudioSourceRef.current = null
+    }
+    
     setConvState('idle')
     mitraStore.setState('idle')
-    setBars(Array(NUM_BARS).fill(15))
   }
 
   const handleStopConversation = () => {
@@ -340,6 +351,10 @@ export default function VoiceModePage() {
     if (!analyser) return
     const freqData = new Uint8Array(analyser.frequencyBinCount)
     const timeData = new Float32Array(analyser.fftSize)
+    
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
 
     const tick = () => {
@@ -349,35 +364,14 @@ export default function VoiceModePage() {
       for (let i = 0; i < timeData.length; i++) sum += timeData[i] * timeData[i]
       const rms = Math.sqrt(sum / timeData.length)
       const isVoiceDetected = rms > SILENCE_THRESHOLD
-      const vol = Math.min(rms / 0.1, 1)
       
-      const timeSec = Date.now() / 1000
-
-      const newBars = Array(NUM_BARS).fill(0).map((_, i) => {
-        const wave1 = Math.sin(timeSec * 2 + i * 0.2) * 10
-        const wave2 = Math.sin(timeSec * 1.5 - i * 0.1) * 8
-        const base = 5
-        
-        let height = base + wave1 + wave2
-
-        const isActuallySpeaking = isListeningRef.current ? isVoiceDetected : isAssistantSpeakingRef.current
-        if (isActuallySpeaking) {
-           const sampleIdx = Math.floor(i * (freqData.length / NUM_BARS)) 
-           const freqValue = (freqData[sampleIdx] || 0) / 255
-           height += freqValue * 50 * (vol + 0.5)
-        }
-        
-        return Math.max(4, Math.min(80, height * (isActuallySpeaking ? 0.8 : 0.3)))
-      })
-      
-      setBars(prev => prev.map((old, i) => old * 0.6 + newBars[i] * 0.4))
-
-      if (isListeningRef.current && !isMuted) {
+      // Handle silence detection logic
+      if (isListeningRef.current && !isMutedRef.current) {
         if (isVoiceDetected) {
           if (!isSpeakingRef.current) isSpeakingRef.current = true
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null }
         } else {
-          if (!silenceTimerRef.current) {
+          if (!silenceTimerRef.current && isSpeakingRef.current) {
             silenceTimerRef.current = setTimeout(() => {
               silenceTimerRef.current = null
               if (isListeningRef.current) flushChunk()
@@ -385,8 +379,56 @@ export default function VoiceModePage() {
           }
         }
       }
+
+      // Draw visualization
+      ctx.clearRect(0, 0, 256, 256)
+      
+      const isActuallySpeaking = (isListeningRef.current && !isMutedRef.current) || isAssistantSpeakingRef.current
+      
+      const centerX = 128
+      const centerY = 128
+      const radiusBase = 68
+      
+      const points = 64
+      const timeSec = Date.now() / 1000
+      
+      ctx.lineCap = 'round'
+      ctx.lineWidth = 4
+      ctx.strokeStyle = 'rgba(122, 74, 95, 0.7)'
+      
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * Math.PI * 2
+        let barHeight = 2 // Base dot size
+        
+        if (isActuallySpeaking) {
+          // Symmetric mapping: left side and right side mirror each other
+          const distFromCenter = Math.abs(i - points/2)
+          // Map to frequency bins (using lower 50% of spectrum for voice frequencies)
+          const dataIndex = Math.floor((distFromCenter / (points/2)) * (freqData.length * 0.5))
+          const val = freqData[dataIndex] / 255.0
+          
+          barHeight += val * 45 // Extend up to 45px outward
+        } else {
+          // Soft breathing idle animation for the dots
+          const noise = Math.sin(timeSec * 2 + angle * 4) * 2
+          barHeight += Math.max(0, noise)
+        }
+        
+        const innerX = centerX + radiusBase * Math.cos(angle - Math.PI/2)
+        const innerY = centerY + radiusBase * Math.sin(angle - Math.PI/2)
+        
+        const outerX = centerX + (radiusBase + barHeight) * Math.cos(angle - Math.PI/2)
+        const outerY = centerY + (radiusBase + barHeight) * Math.sin(angle - Math.PI/2)
+        
+        ctx.beginPath()
+        ctx.moveTo(innerX, innerY)
+        ctx.lineTo(outerX, outerY)
+        ctx.stroke()
+      }
+      
       animFrameRef.current = requestAnimationFrame(tick)
     }
+    
     animFrameRef.current = requestAnimationFrame(tick)
   }
 
@@ -401,184 +443,183 @@ export default function VoiceModePage() {
     isSpeakingRef.current = false
   }
 
-  const getStatusText = () => {
-    if (isPaused) return "Conversation Paused"
-    switch (convState) {
-      case 'listening': return "Listening..."
-      case 'thinking': return "Thinking..."
-      case 'speaking': return "Speaking..."
-      case 'idle': return "Standing By"
-      default: return "Connecting..."
-    }
+  const changeLanguage = (lang: 'en'|'hi'|'te'|'ta') => {
+    setCurrentLang(lang)
+    let code = 'en-IN'
+    if(lang === 'hi') code = 'hi-IN'
+    if(lang === 'te') code = 'te-IN'
+    if(lang === 'ta') code = 'ta-IN'
+    localStorage.setItem('mb_language', code)
+    languageRef.current = code
+    window.dispatchEvent(new Event('mb_language_changed'))
+    setLangMenuOpen(false)
   }
 
+  const t = translations[currentLang]
+  let currentStatusText = t.statusListen
+  if (convState === 'thinking') currentStatusText = t.statusThink
+  else if (convState === 'speaking') currentStatusText = t.statusSpeak
+  else if (isPaused) currentStatusText = t.statusPause
+  else if (isMuted) currentStatusText = t.statusMute
+  else if (convState === 'idle') currentStatusText = "IDLE"
+
+  let currentTitle = t.titleListen
+  if (isPaused) currentTitle = t.titlePause
+  else if (convState === 'thinking') currentTitle = t.titleThink
+  else if (convState === 'idle') currentTitle = t.titleIdle
+  
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes breathing-custom {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px var(--color-primary-container)); }
-            50% { transform: scale(1.05); filter: drop-shadow(0 0 45px var(--color-primary-container)); }
+        @keyframes orb-breathe {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(122, 74, 95, 0.2); }
+            50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(122, 74, 95, 0.4); }
         }
-        @keyframes orbit-custom {
-            from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
-            to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
+        @keyframes orb-listen {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(122, 74, 95, 0.4); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 30px rgba(122, 74, 95, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(122, 74, 95, 0); }
         }
-        @keyframes pulse-dot-custom {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.8); }
+        @keyframes orb-think {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        .animate-breathing-custom {
-            animation: breathing-custom 4s ease-in-out infinite;
+        @keyframes orb-speak {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(122, 74, 95, 0.4); }
+            50% { transform: scale(1.15); box-shadow: 0 0 60px rgba(122, 74, 95, 0.7); }
         }
-        .particle-custom {
+        
+        .state-idle .orb { animation: orb-breathe 4s infinite ease-in-out; }
+        .state-listening .orb { animation: orb-listen 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .state-speaking .orb { animation: orb-speak 4s infinite ease-in-out; }
+        .state-paused .orb { animation: orb-breathe 6s infinite ease-in-out; filter: grayscale(50%); }
+        
+        .state-thinking .orb-ring {
+            border: 2px dashed rgba(122, 74, 95, 0.5);
+            animation: orb-think 4s linear infinite;
+            opacity: 1;
+        }
+
+        .orb-ring {
             position: absolute;
-            background: var(--color-primary);
+            inset: -12px;
             border-radius: 50%;
-            pointer-events: none;
+            border: 2px solid transparent;
+            opacity: 0;
+            transition: all 0.5s ease;
         }
-        .circular-waveform-container {
-            position: relative;
-            width: 280px;
-            height: 280px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .circular-bar {
-            position: absolute;
-            bottom: 50%;
-            left: 50%;
-            width: 4px;
-            border-radius: 99px;
-            background: var(--color-primary);
-            transform-origin: bottom center;
-            transition: height 0.05s ease-out;
+        
+        .bg-gradient-voice {
+            background-color: #fff8f5;
         }
       `}} />
-      <div className="bg-background text-on-surface font-body-md overflow-hidden h-[100dvh] w-full flex flex-col relative pt-24 pb-6">
-        <main className="relative z-20 flex-1 flex flex-col items-center justify-between w-full max-w-[1000px] mx-auto px-4">
-          
-          <header className="text-center space-y-2 opacity-90 transition-opacity duration-500 mt-2">
-            <div className="flex items-center justify-center space-x-3">
-              <span 
-                className={`w-2.5 h-2.5 rounded-full ${isPaused ? 'bg-outline' : (isMuted && convState === 'idle') ? 'bg-error' : 'bg-primary'}`} 
-                style={{ animation: isPaused || (isMuted && convState === 'idle') || convState !== 'listening' ? 'none' : 'pulse-dot-custom 1.5s ease-in-out infinite' }}
-              ></span>
-              <span className={`font-label-md tracking-[0.2em] uppercase ${isPaused ? 'text-outline' : (isMuted && convState === 'idle') ? 'text-error' : 'text-primary'}`}>
-                {getStatusText()}
-              </span>
-            </div>
-            <p className="font-headline text-xl italic text-on-surface-variant">
-              {isPaused ? "Ready when you are." : convState === 'idle' ? "Tap the mic icon to resume." : "Go ahead, I'm here for you."}
-            </p>
-          </header>
+      <div className={`bg-gradient-voice h-[100dvh] flex flex-col items-center justify-between overflow-hidden fixed inset-0 state-${convState}`}>
+        
+        {/* Background Atmospheric Shader */}
+        <div className="absolute inset-0 z-0 pointer-events-none grain-overlay opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")" }}></div>
+        <div className="absolute rounded-full filter blur-[80px] opacity-40 z-0 pointer-events-none bg-secondary-fixed w-96 h-96 top-[10%] left-[-10%]"></div>
+        <div className="absolute rounded-full filter blur-[80px] opacity-40 z-0 pointer-events-none bg-tertiary-fixed w-96 h-96 bottom-[10%] right-[-10%]"></div>
+        <div className="absolute rounded-full filter blur-[80px] opacity-30 z-0 pointer-events-none bg-primary-fixed-dim w-[500px] h-[500px] top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2"></div>
 
-          {/* Centered Circular Visualizer & Glowing Orb */}
-          <div className={`relative flex items-center justify-center w-full max-w-[320px] max-h-[320px] aspect-square transition-all duration-1000 my-auto ${isPaused ? 'opacity-40 scale-95 grayscale-[50%]' : convState === 'idle' ? 'opacity-70' : 'opacity-100'}`}>
-            <div 
-              className={`absolute w-40 h-40 rounded-full blur-[50px] animate-breathing-custom transition-colors duration-1000 opacity-40`}
-              style={{
-                backgroundColor: isPaused ? 'var(--color-outline)' : 'var(--color-primary)'
-              }}
-            ></div>
+        {/* TopAppBar */}
+        <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-4 md:px-margin-desktop py-4 md:py-6 bg-transparent animate-fade-in-up">
+            <div className="text-headline-md font-headline-md font-medium text-primary ml-2">Mythri</div>
+            <div className="flex gap-3 md:gap-4 items-center relative mr-2">
+                <button onClick={() => {setLangMenuOpen(!langMenuOpen); setMainMenuOpen(false)}} className="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">language</button>
+                <button onClick={() => {setMainMenuOpen(!mainMenuOpen); setLangMenuOpen(false)}} className="hidden md:block material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">grid_view</button>
+                <button onClick={() => router.replace('/consultation')} className="md:hidden material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">close</button>
+            </div>
             
-            <div className="absolute inset-0 pointer-events-none">
-              {particles.map(p => (
-                <div 
-                  key={p.id}
-                  className="particle-custom"
-                  style={{
-                    width: `${p.size}px`,
-                    height: `${p.size}px`,
-                    opacity: p.opacity,
-                    animation: `orbit-custom ${p.duration}s linear infinite`,
-                    animationDelay: `-${p.delay}s`,
-                    transformOrigin: 'center center'
-                  }}
-                ></div>
-              ))}
+            {/* Desktop Main Menu */}
+            <nav className={`absolute right-4 md:right-8 top-[100%] mt-2 w-56 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex-col p-2 gap-1 origin-top transition-all duration-300 hidden md:flex ${mainMenuOpen ? 'scale-y-100 opacity-100 pointer-events-auto' : 'scale-y-0 opacity-0 pointer-events-none'}`}>
+                <Link href="/" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                    <span className="material-symbols-outlined text-[20px]">home</span> Sanctuary
+                </Link>
+                <Link href="/consultation" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                    <span className="material-symbols-outlined text-[20px]">health_and_safety</span> Consultation
+                </Link>
+                <Link href="/history" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                    <span className="material-symbols-outlined text-[20px]">history</span> Journal
+                </Link>
+                <Link href="/profile" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                    <span className="material-symbols-outlined text-[20px]">person</span> Profile
+                </Link>
+                <div className="h-px bg-outline-variant/30 my-1 mx-2"></div>
+                <button onClick={() => { localStorage.clear(); router.replace('/login'); }} className="text-error hover:bg-error/10 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md text-left w-full">
+                    <span className="material-symbols-outlined text-[20px]">logout</span> Logout
+                </button>
+            </nav>
+
+            {/* Language Menu */}
+            <div className={`absolute right-16 md:right-20 top-[100%] mt-2 w-40 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex flex-col p-2 gap-1 origin-top-right transition-all duration-300 ${langMenuOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'}`}>
+                <button onClick={() => changeLanguage('en')} className={`transition-colors px-4 py-2 rounded-xl text-left font-label-md ${currentLang === 'en' ? 'text-primary font-bold bg-white/80 hover:bg-white/90' : 'text-on-surface-variant hover:bg-white/60'}`}>English</button>
+                <button onClick={() => changeLanguage('hi')} className={`transition-colors px-4 py-2 rounded-xl text-left font-label-md ${currentLang === 'hi' ? 'text-primary font-bold bg-white/80 hover:bg-white/90' : 'text-on-surface-variant hover:bg-white/60'}`}>Hindi</button>
+                <button onClick={() => changeLanguage('te')} className={`transition-colors px-4 py-2 rounded-xl text-left font-label-md ${currentLang === 'te' ? 'text-primary font-bold bg-white/80 hover:bg-white/90' : 'text-on-surface-variant hover:bg-white/60'}`}>Telugu</button>
+                <button onClick={() => changeLanguage('ta')} className={`transition-colors px-4 py-2 rounded-xl text-left font-label-md ${currentLang === 'ta' ? 'text-primary font-bold bg-white/80 hover:bg-white/90' : 'text-on-surface-variant hover:bg-white/60'}`}>Tamil</button>
+            </div>
+        </nav>
+
+        {/* Main Content */}
+        <main className="flex-1 w-full flex flex-col items-center justify-center z-10 px-4 h-full pb-16 md:pb-20 pt-20 animate-fade-in-up relative">
+            <div className="text-center transition-opacity duration-500">
+                <p className={`text-label-md font-label-md opacity-60 tracking-[0.2em] uppercase ${isMuted ? 'text-error' : 'text-primary'}`}>
+                    {currentStatusText}
+                </p>
             </div>
 
-            {/* Circular Waveform Array */}
-            <div className="circular-waveform-container z-20 animate-breathing-custom">
-               {bars.map((height, i) => {
-                 const angle = (i / NUM_BARS) * 360;
-                 // Radius of the circle where bars start
-                 const radius = 80; 
-                 const opacity = Math.min(1, 0.4 + (height / 60));
-                 return (
-                   <div 
-                     key={i}
-                     className="circular-bar"
-                     style={{
-                       height: `${isPaused || (convState === 'idle' && !isMuted) ? 4 : height}px`,
-                       opacity: opacity,
-                       transform: `translate(-50%, 0) rotate(${angle}deg) translateY(-${radius}px)`,
-                       backgroundColor: isPaused ? 'var(--color-outline)' : 'var(--color-primary)'
-                     }}
-                   ></div>
-                 )
-               })}
+            <div className="relative flex items-center justify-center w-64 h-64 my-6 md:my-12">
+                <div className="orb-ring"></div>
+                <div className="orb w-32 h-32 rounded-full bg-gradient-to-br from-primary-fixed to-secondary-fixed-dim shadow-lg flex items-center justify-center relative z-10 transition-all duration-700">
+                    <div className="absolute inset-0 rounded-full bg-white/30 mix-blend-overlay"></div>
+                    <div className="w-16 h-16 rounded-full bg-primary/10 backdrop-blur-sm mix-blend-multiply"></div>
+                </div>
+                <canvas ref={canvasRef} width="256" height="256" className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-400 ${convState === 'listening' || convState === 'speaking' ? 'opacity-100' : 'opacity-0'}`}></canvas>
             </div>
-          </div>
 
-          {/* Live Transcript & Response Display */}
-          <div className="w-full max-w-lg text-center space-y-3 px-4 h-24 flex flex-col justify-center overflow-hidden">
-            <p className="text-on-surface-variant font-body-md italic opacity-70 text-sm truncate">
-              {userTranscript ? `"${userTranscript}"` : ""}
-            </p>
-            <p className="text-on-surface font-body-lg line-clamp-2">
-              {agentResponse}
-            </p>
-          </div>
-
-          <div className="w-full flex flex-col items-center">
-            <footer className="flex items-center justify-center space-x-4 md:space-x-8 w-full">
-              
-              {/* Stop Session Button */}
-              <button 
-                onClick={handleStopConversation}
-                className="flex flex-col items-center justify-center space-y-1.5 group"
-                title="End Conversation"
-              >
-                <div className="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 bg-surface-container text-on-surface group-hover:bg-error group-hover:text-on-error border border-outline-variant shadow-sm">
-                  <span className="material-symbols-outlined text-[20px]">call_end</span>
+            <div className="text-center max-w-lg w-full flex flex-col items-center gap-4 md:gap-6">
+                <h1 className="text-headline-lg font-headline-md text-primary transition-opacity duration-500" style={{opacity: convState === 'thinking' ? 0.4 : 1}}>
+                  {currentTitle}
+                </h1>
+                
+                <div className="flex flex-col items-center gap-2 w-full text-body-md md:text-body-lg font-body-md text-on-surface-variant min-h-[60px] md:min-h-[80px]">
+                    <p className="font-medium text-on-surface-variant italic opacity-70">
+                      {userTranscript ? `"${userTranscript}"` : ""}
+                    </p>
+                    <p className="font-medium text-primary line-clamp-2">
+                      {agentResponse}
+                    </p>
                 </div>
-                <span className="text-[10px] font-label-md uppercase tracking-wider text-on-surface-variant group-hover:text-error transition-colors">End</span>
-              </button>
-
-              {/* Central Pause/Resume Toggle */}
-              <button 
-                onClick={togglePause}
-                className={`px-6 h-14 rounded-full shadow-lg flex items-center space-x-2.5 transition-all duration-300 active:scale-95 cursor-pointer ${isPaused ? 'bg-primary text-on-primary hover:bg-primary/90' : 'bg-surface-container-highest text-on-surface border border-outline-variant hover:bg-outline-variant/30'}`}
-              >
-                <span className="material-symbols-outlined fill" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  {isPaused ? 'play_arrow' : 'pause'}
-                </span>
-                <span className="uppercase tracking-widest text-sm font-label-md">
-                  {isPaused ? 'Resume' : 'Pause'}
-                </span>
-              </button>
-
-              <button 
-                onClick={toggleMute}
-                disabled={isPaused}
-                className="flex flex-col items-center justify-center space-y-1.5 group disabled:opacity-50 disabled:cursor-not-allowed"
-                title={isMuted ? "Resume Listening" : "Respond Now / Stop Listening"}
-              >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 border border-outline-variant shadow-sm ${isMuted ? 'bg-surface-container-highest text-on-surface' : 'bg-surface-container text-on-surface group-hover:bg-surface-container-highest'}`}>
-                  <span className="material-symbols-outlined text-[20px]">
-                    {isMuted ? 'mic_off' : 'mic'}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-label-md uppercase tracking-wider transition-colors text-on-surface-variant`}>
-                  {isMuted ? 'Off' : 'Active'}
-                </span>
-              </button>
-
-            </footer>
-          </div>
+            </div>
         </main>
+
+        {/* Controls Footer */}
+        <footer className="w-full pb-8 md:pb-10 pt-4 flex flex-col items-center z-20 fixed bottom-0 bg-gradient-to-t from-[#fff8f5] via-[#fff8f5]/90 to-transparent transition-transform duration-600">
+            <div className="flex items-center gap-8 md:gap-16 justify-center">
+                <button onClick={toggleMute} disabled={isPaused} className="group flex flex-col items-center gap-2 disabled:opacity-50">
+                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full border flex items-center justify-center transition-all active:scale-95 shadow-sm backdrop-blur-md ${isMuted ? 'border-error text-error bg-error/10' : 'border-outline/30 text-on-surface-variant group-hover:bg-white/60 group-hover:border-outline/50'}`}>
+                        <span className="material-symbols-outlined text-[22px] md:text-[26px]" style={{ fontVariationSettings: isMuted ? "'FILL' 1" : "'FILL' 0" }}>
+                          {isMuted ? 'mic_off' : 'mic'}
+                        </span>
+                    </div>
+                </button>
+                
+                <button onClick={togglePause} className="group relative flex items-center justify-center mx-2 md:mx-0">
+                    <div className="absolute inset-0 bg-primary opacity-5 rounded-full scale-125 md:scale-150 blur-xl transition-all group-hover:scale-150 md:group-hover:scale-[1.7]"></div>
+                    <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95 shadow-lg relative z-10 ${isPaused ? 'bg-transparent text-primary border-2 border-primary/50' : 'bg-primary text-on-primary hover:bg-primary/90 shadow-primary/20'}`}>
+                        <span className="material-symbols-outlined text-[28px] md:text-[36px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          {isPaused ? 'play_arrow' : 'pause'}
+                        </span>
+                    </div>
+                </button>
+                
+                <button onClick={handleStopConversation} className="group flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-error/10 border border-error/20 flex items-center justify-center text-error hover:bg-error hover:text-on-error transition-all active:scale-95 shadow-sm backdrop-blur-md">
+                        <span className="material-symbols-outlined text-[22px] md:text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>call_end</span>
+                    </div>
+                </button>
+            </div>
+            {/* Removed the hint text since idle state is not fully implemented in the same way, we just rely on pause/mute */}
+        </footer>
       </div>
     </>
   )

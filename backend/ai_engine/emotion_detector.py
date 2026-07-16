@@ -5,12 +5,29 @@ import asyncio
 from dataclasses import dataclass
 from dotenv import load_dotenv
 import pathlib
+from transformers import pipeline
 
 _BASE = pathlib.Path(__file__).resolve().parent.parent
 load_dotenv(_BASE / ".env")
 load_dotenv(_BASE / ".env.local", override=True)
 HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
 HF_MODEL = "SamLowe/roberta-base-go_emotions"
+HF_API_DISABLED = False
+
+_emotion_pipeline = None
+
+def get_emotion_pipeline():
+    global _emotion_pipeline
+    if _emotion_pipeline is None:
+        try:
+            print(f"[HF Emotion] Loading local transformers pipeline for {HF_MODEL}...")
+            # top_k=1 returns [[{'label': '...', 'score': ...}]] format in recent versions, 
+            # or [{'label': '...', 'score': ...}] depending on version. We'll handle both.
+            _emotion_pipeline = pipeline("text-classification", model=HF_MODEL, top_k=1)
+        except Exception as e:
+            print(f"[HF Emotion] Error loading pipeline: {e}")
+            _emotion_pipeline = "FAILED"
+    return _emotion_pipeline
 
 EMOTION_KEYWORDS = {
     "Anger": [
@@ -97,34 +114,40 @@ def detect_emotion_heuristic(text: str) -> EmotionResult:
 
 
 async def detect_emotion(text: str) -> EmotionResult:
+    global HF_API_DISABLED
     """
     Main entry point — Deep Learning with Keyword Fallback.
     """
     if not text.strip():
         return EmotionResult("Neutral", "😐", 0.0, "neutral")
 
-    # If no token, use heuristic immediately
-    if not HF_TOKEN:
+    # If no token or if API previously failed, use heuristic immediately
+    if not HF_TOKEN or HF_API_DISABLED:
         return detect_emotion_heuristic(text)
 
     try:
-        # Use Hugging Face Inference API for high-quality detection
-        async with httpx.AsyncClient() as client:
-            url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/pipeline/text-classification"
-            headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-            payload = {"inputs": text, "options": {"wait_for_model": True}}
+        # Use local transformers pipeline
+        pipe = get_emotion_pipeline()
+        
+        if pipe and pipe != "FAILED":
+            # Run the heavy inference in a background thread to prevent blocking asyncio loop
+            results = await asyncio.to_thread(pipe, text)
             
-            response = await client.post(url, headers=headers, json=payload, timeout=1.8)
-            
-            if response.status_code == 200:
-                results = response.json()
-                if results and isinstance(results, list) and isinstance(results[0], list):
+            if results:
+                # pipeline(top_k=1) returns either a list of lists (batch) or a list of dicts.
+                if isinstance(results, list) and isinstance(results[0], list):
                     top_match = results[0][0]
+                elif isinstance(results, list) and isinstance(results[0], dict):
+                    top_match = results[0]
+                else:
+                    top_match = None
+                    
+                if top_match:
                     hf_label = top_match["label"]
                     score = top_match["score"]
                     
                     category = GO_EMOTIONS_MAP.get(hf_label, "Neutral")
-                    print(f"[HF Emotion] Detected '{hf_label}' -> '{category}' ({score:.2f})")
+                    print(f"[Local HF Emotion] Detected '{hf_label}' -> '{category}' ({score:.2f})")
                     
                     return EmotionResult(
                         label=category,
@@ -132,11 +155,8 @@ async def detect_emotion(text: str) -> EmotionResult:
                         score=float(score),
                         raw_label=hf_label
                     )
-            
-            print(f"[HF Emotion] API error {response.status_code}, falling back.")
-            
     except Exception as e:
-        print(f"[HF Emotion] Unexpected error: {e}, falling back.")
+        print(f"[Local HF Emotion] Unexpected error: {e}, falling back.")
         
     return detect_emotion_heuristic(text)
 

@@ -10,7 +10,7 @@ from api.auth import router as auth_router
 from api.consultation import router as consultation_router
 from api.voice import router as voice_router
 from api.streaming import router as streaming_router
-
+from api.telemetry import router as telemetry_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(consultation_router)
 app.include_router(voice_router)
 app.include_router(streaming_router)
+app.include_router(telemetry_router)
 
 
 from fastapi.exceptions import RequestValidationError

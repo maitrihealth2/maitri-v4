@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { startSession, sendMessage, getTranscript } from '../../lib/api'
-import MitraCompanion from '../components/MitraCompanion'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -45,31 +45,25 @@ function TypewriterText({ text, animate }: { text: string; animate: boolean }) {
   return <>{displayed}</>
 }
 
-const QUICK_REPLIES: Record<string, { label: string; text: string }[]> = {
-  'en-IN': [
-    { label: 'Anxious', text: 'I have been feeling very anxious lately' },
-    { label: "Can't sleep", text: 'I am having trouble sleeping' },
-    { label: 'Work stress', text: 'I am feeling overwhelmed by work stress' },
-    { label: 'Feeling lonely', text: 'I just need someone to talk to right now' },
-  ],
-  'hi-IN': [
-    { label: 'चिंता', text: 'मुझे बहुत चिंता हो रही है' },
-    { label: 'नींद नहीं आती', text: 'मुझे नींद नहीं आती' },
-    { label: 'काम का तनाव', text: 'काम के तनाव से मैं बहुत परेशान हूँ' },
-    { label: 'अकेलापन', text: 'मुझे बस किसी से बात करनी है' },
-  ],
-  'ta-IN': [
-    { label: 'கவலை', text: 'நான் மிகவும் கவலையாக உணர்கிறேன்' },
-    { label: 'தூக்கமின்மை', text: 'எனக்கு தூக்கம் வரவில்லை' },
-    { label: 'வேலை அழுத்தம்', text: 'வேலை அழுத்தத்தால் நான் மிகவும் சிரமப்படுகிறேன்' },
-    { label: 'தனிமை', text: 'எனக்கு யாரிடமாவது பேச வேண்டும்' },
-  ],
-  'te-IN': [
-    { label: 'ఆందోళన', text: 'నేను చాలా ఆందోళనగా ఉన్నాను' },
-    { label: 'నిద్రపట్టడం లేదు', text: 'నాకు నిద్ర పట్టడం లేదు' },
-    { label: 'పని ఒత్తిడి', text: 'పని ఒత్తిడి వల్ల నేను చాలా ఇబ్బంది పడుతున్నాను' },
-    { label: 'ఒంటరితనం', text: 'నేను ఎవరితోనైనా మాట్లాడాలి' },
-  ],
+const QUICK_REPLIES: Record<string, string[]> = {
+  'en-IN': ['Anxious', "Can't sleep", 'Lonely', 'Reflecting', 'Overwhelmed'],
+  'hi-IN': ['चिंतित', 'नींद नहीं आ रही', 'अकेलापन', 'विचारशील', 'व्याकुल'],
+  'te-IN': ['ఆందోళనగా', 'నిద్రరావడం లేదు', 'ఒంటరిగా', 'ఆలోచిస్తున్నాను', 'అతిగా అనిపిస్తుంది'],
+  'ta-IN': ['கவலை', 'தூக்கமின்மை', 'தனிமை', 'சிந்தனை', 'மிகுந்த சுமை'],
+}
+
+const WELCOME_MSGS: Record<string, string> = {
+  'en-IN': "Welcome back. This is your quiet space. What would you like to talk about today?",
+  'hi-IN': "वापसी पर स्वागत है। यह आपके विचारों के लिए एक शांत जगह है। आप इस समय कैसा महसूस कर रहे हैं?",
+  'te-IN': "తిరిగి స్వాగతం. ఇది మీ ఆలోచనల కోసం ఒక ప్రశాంతమైన ప్రదేశం. మీరు ఈ క్షణంలో ఎలా భావిస్తున్నారు?",
+  'ta-IN': "மீண்டும் வருக. இது உங்கள் எண்ணங்களுக்கான அமைதியான இடம். இந்த தருணத்தில் நீங்கள் எப்படி உணர்கிறீர்கள்?"
+}
+
+const INPUT_PLACEHOLDERS: Record<string, string> = {
+  'en-IN': "Describe your feelings...",
+  'hi-IN': "अपनी भावनाओं का वर्णन करें...",
+  'te-IN': "మీ భావాలను వివరించండి...",
+  'ta-IN': "உங்கள் உணர்வுகளை விவரிக்கவும்..."
 }
 
 export default function ConsultationPage() {
@@ -79,54 +73,66 @@ export default function ConsultationPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [language, setLanguage] = useState('en-IN')
-  const [username, setUsername] = useState('')
   const [starting, setStarting] = useState(true)
-  const [currentEmotion, setCurrentEmotion] = useState('Neutral')
+  
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const [exerciseMode, setExerciseMode] = useState(false)
+  const [breathPhase, setBreathPhase] = useState({ text: 'IN', size: 'w-40 h-40', color: 'bg-primary/50' })
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const initialized = useRef(false)
+  const breathIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const quickReplies = QUICK_REPLIES[language] || QUICK_REPLIES['en-IN']
+  const welcomeMsg = WELCOME_MSGS[language] || WELCOME_MSGS['en-IN']
+  const inputPlaceholder = INPUT_PLACEHOLDERS[language] || INPUT_PLACEHOLDERS['en-IN']
+
+  const userMessageCount = messages.filter(m => m.role === 'user').length
+  const showQuickReplies = userMessageCount <= 2 && !loading
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : null
-    if (!token) { router.replace('/'); return }
+    if (!token) { router.replace('/login'); return }
 
-    setUsername(localStorage.getItem('mb_username') || 'Friend')
-    const handleLangChange = () => {
-      const newLang = localStorage.getItem('mb_language') || 'en-IN'
-      setLanguage(newLang)
-    }
-    const handleNewChat = () => {
-      localStorage.removeItem('mb_session_id')
-      setSessionId(null)
-      setMessages([])
-      setStarting(true)
-      initialized.current = false
-      initSession()
-    }
-
-    handleLangChange()
-    window.addEventListener('mb_language_changed', handleLangChange)
-    window.addEventListener('mb_new_chat', handleNewChat)
+    const storedLang = localStorage.getItem('mb_language')
+    if (storedLang) setLanguage(storedLang)
 
     if (!initialized.current) {
       initialized.current = true
       initSession()
     }
-
-    return () => {
-      window.removeEventListener('mb_language_changed', handleLangChange)
-      window.removeEventListener('mb_new_chat', handleNewChat)
-    }
-  }, [language, router])
+  }, [router])
 
   useEffect(() => {
     if (messages.length > 0) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, loading])
+
+  // Breathing animation logic
+  useEffect(() => {
+    if (exerciseMode) {
+      const phases = [
+        { text: 'IN', size: 'w-40 h-40 md:w-24 md:h-24', color: 'bg-primary/50 md:bg-primary/40' },
+        { text: 'HOLD', size: 'w-40 h-40 md:w-24 md:h-24', color: 'bg-primary/60 md:bg-primary/40' },
+        { text: 'OUT', size: 'w-24 h-24 md:w-24 md:h-24', color: 'bg-primary/30 md:bg-primary/40' },
+        { text: 'HOLD', size: 'w-24 h-24 md:w-24 md:h-24', color: 'bg-primary/40 md:bg-primary/40' }
+      ]
+      let step = 0
+      setBreathPhase(phases[step])
+      breathIntervalRef.current = setInterval(() => {
+        step = (step + 1) % 4
+        setBreathPhase(phases[step])
+      }, 4000)
+    } else {
+      if (breathIntervalRef.current) clearInterval(breathIntervalRef.current)
+    }
+    return () => {
+      if (breathIntervalRef.current) clearInterval(breathIntervalRef.current)
+    }
+  }, [exerciseMode])
 
   const initSession = async () => {
     try {
@@ -150,14 +156,10 @@ export default function ConsultationPage() {
       localStorage.setItem('mb_session_id', data.session_id)
       
       const currentLang = localStorage.getItem('mb_language') || 'en-IN'
-      let welcomeMsg = "Hello. I'm here for you. Would you like to talk about what's been on your mind?"
-      if (currentLang === 'hi-IN') welcomeMsg = "नमस्ते। मैं आपके लिए यहाँ हूँ। क्या आप बताना चाहेंगे कि आपके मन में क्या चल रहा है?"
-      if (currentLang === 'ta-IN') welcomeMsg = "வணக்கம். நான் உங்களுக்காக இங்கே இருக்கிறேன். உங்கள் மனதில் என்ன இருக்கிறது என்பதைப் பற்றி பேச விரும்புகிறீர்களா?"
-      if (currentLang === 'te-IN') welcomeMsg = "నమస్కారం. నేను మీ కోసం ఇక్కడ ఉన్నాను. మీ మనసులో ఏముందో మాట్లాడాలనుకుంటున్నారా?"
-      
-      setMessages([{ role: 'assistant', content: welcomeMsg }])
+      const welcome = WELCOME_MSGS[currentLang] || WELCOME_MSGS['en-IN']
+      setMessages([{ role: 'assistant', content: welcome, is_new: true }])
     } catch {
-      router.replace('/')
+      // router.replace('/')
     } finally {
       setStarting(false)
     }
@@ -173,7 +175,6 @@ export default function ConsultationPage() {
 
     try {
       const data = await sendMessage(sessionId, msg, language)
-      setCurrentEmotion(data.emotion || 'Neutral')
       setMessages(prev => [...prev, {
         role: 'assistant', content: data.response,
         is_crisis: data.is_crisis, helplines: data.helplines,
@@ -191,6 +192,21 @@ export default function ConsultationPage() {
     e.target.style.height = `${e.target.scrollHeight}px`
   }
 
+  const changeLanguage = (lang: string) => {
+    setLanguage(lang)
+    localStorage.setItem('mb_language', lang)
+    setLangMenuOpen(false)
+  }
+
+  const handleNewChat = () => {
+    localStorage.removeItem('mb_session_id')
+    setSessionId(null)
+    setMessages([])
+    setStarting(true)
+    initialized.current = false
+    initSession()
+  }
+
   if (starting) return (
     <div className="bg-background text-on-background min-h-screen flex items-center justify-center pt-24">
        <span className="material-symbols-outlined text-4xl text-primary animate-pulse">spa</span>
@@ -198,148 +214,228 @@ export default function ConsultationPage() {
   )
 
   return (
-    <div className="bg-background text-on-surface min-h-screen flex flex-col relative overflow-hidden pt-24">
-      {/* Main Content Area */}
-      <main className="flex-grow flex flex-col w-full max-w-[1000px] mx-auto px-margin-mobile md:px-margin-desktop">
+    <>
+      {/* Desktop Exercise Panel (Left) */}
+      <aside className={`hidden lg:flex fixed left-8 top-1/2 -translate-y-1/2 w-80 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-3xl p-8 flex-col gap-6 transition-all duration-700 z-30 ${exerciseMode ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-[150%] opacity-0 pointer-events-none'}`}>
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary text-[32px]">self_improvement</span>
+          <h2 className="text-headline-md font-headline-md text-primary">Box Breathing</h2>
+        </div>
+        <p className="text-body-md text-on-surface-variant leading-relaxed">
+          Let's take a moment to center yourself. Follow the pattern to relieve stress and regain focus.
+        </p>
+        <div className="mt-2 p-5 bg-primary/5 rounded-2xl border border-primary/10">
+          <ul className="space-y-4 text-body-sm text-on-surface-variant font-medium">
+            <li className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-primary"></div> Inhale deeply (4s)</li>
+            <li className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-primary/60"></div> Hold your breath (4s)</li>
+            <li className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-primary/30"></div> Exhale slowly (4s)</li>
+            <li className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full bg-primary/10"></div> Hold empty (4s)</li>
+          </ul>
+        </div>
+      </aside>
+
+      {/* Desktop Timer Panel (Right) */}
+      <aside className={`hidden lg:flex fixed right-8 top-1/2 -translate-y-1/2 w-80 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-3xl p-8 flex-col items-center justify-center gap-8 transition-all duration-700 z-30 ${exerciseMode ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[150%] opacity-0 pointer-events-none'}`}>
+        <h3 className="text-headline-md font-headline-md text-primary text-center">Current Phase</h3>
         
-        {/* Conversation Feed */}
-        <section className="flex-grow overflow-y-auto pt-8 pb-36 custom-scrollbar w-full relative z-10">
+        {/* Breathing Visualizer */}
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
+          <div className={`absolute rounded-full shadow-lg flex items-center justify-center transition-all duration-[4000ms] ease-in-out ${breathPhase.size} ${breathPhase.color}`}>
+            <span className="text-headline-md font-bold text-white tracking-widest drop-shadow-md">{breathPhase.text}</span>
+          </div>
+        </div>
+        
+        <div className="text-center w-full">
+          <div className="text-display-lg font-display-lg text-primary font-bold mb-2">02:45</div>
+          <span className="text-label-md text-on-surface-variant">Remaining</span>
+        </div>
+        
+        <button onClick={() => setExerciseMode(false)} className="px-6 py-2.5 bg-surface-container-high hover:bg-surface-variant text-on-surface-variant rounded-full font-label-md transition-all shadow-sm">
+          End Exercise
+        </button>
+      </aside>
+
+      {/* Mobile Exercise Overlay */}
+      <div className={`md:hidden fixed inset-x-0 bottom-0 z-50 bg-white/80 backdrop-blur-3xl border-t border-white/50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[2rem] p-6 flex flex-col gap-6 transition-all duration-500 ${exerciseMode ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'}`}>
+        <div className="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto mb-2"></div>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span className="material-symbols-outlined text-primary text-[32px]">self_improvement</span>
+          <h2 className="text-headline-md font-headline-md text-primary">Box Breathing</h2>
+          <p className="text-body-sm text-on-surface-variant">Regain focus and center yourself.</p>
+        </div>
+        <div className="relative w-40 h-40 flex items-center justify-center mx-auto my-4">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
+          <div className={`absolute rounded-full shadow-lg flex items-center justify-center transition-all duration-[4000ms] ease-in-out ${breathPhase.size} ${breathPhase.color}`}>
+            <span className="text-label-md font-bold text-white tracking-widest drop-shadow-md">{breathPhase.text}</span>
+          </div>
+        </div>
+        <div className="text-center w-full">
+          <div className="text-display-lg font-display-lg text-primary font-bold mb-1">02:45</div>
+          <span className="text-label-md text-on-surface-variant">Remaining</span>
+        </div>
+        <button onClick={() => setExerciseMode(false)} className="w-full py-3.5 bg-surface-container-high hover:bg-surface-variant text-on-surface-variant rounded-2xl font-label-md transition-all shadow-sm">
+          End Exercise
+        </button>
+      </div>
+
+      {/* Desktop Header */}
+      <header className="hidden md:flex fixed top-0 z-40 justify-between items-center w-full px-margin-desktop py-4 pointer-events-none animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        <div className="flex items-center gap-4 pointer-events-auto">
+          <Link href="/" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all hover:bg-white/80 active:scale-95 shadow-sm">home</Link>
+          <span className="text-headline-md font-headline-md font-medium text-primary drop-shadow-md">Mythri</span>
+        </div>
+        <div className="flex items-center gap-4 relative pointer-events-auto">
+          <button onClick={() => setExerciseMode(!exerciseMode)} className="hidden md:block px-3 py-1.5 bg-white/60 backdrop-blur-md border border-white/50 shadow-sm text-primary rounded-xl font-label-md hover:bg-white/80 transition-all" title="Demo Exercise">Demo Exercise</button>
+          <button onClick={handleNewChat} title="New Chat" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:bg-white/80 p-2 rounded-full transition-all active:scale-95">add</button>
+          <button onClick={() => {setLangMenuOpen(!langMenuOpen); setMenuOpen(false);}} className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:bg-white/80 p-2 rounded-full transition-all active:scale-95">language</button>
+          <button onClick={() => {setMenuOpen(!menuOpen); setLangMenuOpen(false);}} className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 shadow-sm hover:bg-white/80 p-2 rounded-full transition-all active:scale-95">grid_view</button>
           
-          {/* Welcome Info (Bento Style) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-stack-lg animate-fade-up">
-            <div className="solid-card p-6 flex flex-col justify-between min-h-[160px]">
-              <div className="text-primary mb-2">
-                <span className="material-symbols-outlined text-3xl">lightbulb</span>
-              </div>
-              <div>
-                <h3 className="font-headline text-2xl mb-1 text-on-surface">Morning, {username}</h3>
-                <p className="font-body-md text-on-surface-variant">
-                  I noticed you've been focused on mental wellness. How are you feeling right now?
+          {/* Dropdown Menu */}
+          <nav className={`absolute right-0 top-[100%] mt-2 w-56 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex flex-col p-2 gap-1 origin-top transition-all duration-300 ${menuOpen ? 'scale-y-100 opacity-100 pointer-events-auto' : 'scale-y-0 opacity-0 pointer-events-none'}`}>
+            <Link href="/" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+              <span className="material-symbols-outlined text-[20px]">home</span> Sanctuary
+            </Link>
+            <Link href="/consultation" className="text-primary font-bold bg-white/80 px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+              <span className="material-symbols-outlined text-[20px]">health_and_safety</span> Consultation
+            </Link>
+            <Link href="/history" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+              <span className="material-symbols-outlined text-[20px]">history</span> Journal
+            </Link>
+            <Link href="/profile" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+              <span className="material-symbols-outlined text-[20px]">person</span> Profile
+            </Link>
+            <div className="h-px bg-outline-variant/30 my-1 mx-2"></div>
+            <button onClick={() => { localStorage.clear(); router.replace('/login'); }} className="text-error hover:bg-error/10 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md text-left w-full">
+              <span className="material-symbols-outlined text-[20px]">logout</span> Logout
+            </button>
+          </nav>
+          
+          {/* Language Menu */}
+          <div className={`absolute right-12 top-[100%] mt-2 w-40 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex flex-col p-2 gap-1 origin-top-right transition-all duration-300 ${langMenuOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'}`}>
+            <button onClick={() => changeLanguage('en-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'en-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>English</button>
+            <button onClick={() => changeLanguage('hi-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'hi-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Hindi</button>
+            <button onClick={() => changeLanguage('te-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'te-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Telugu</button>
+            <button onClick={() => changeLanguage('ta-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'ta-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Tamil</button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Header */}
+      <header className="flex md:hidden fixed top-0 z-40 justify-between items-center w-full px-4 py-4 pointer-events-none">
+        <div className="flex items-center gap-3 pointer-events-auto">
+          <Link href="/" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all active:scale-95 shadow-sm">home</Link>
+          <span className="text-headline-md font-headline-md font-medium text-primary drop-shadow-md">Mythri</span>
+        </div>
+        <div className="flex items-center gap-2 relative pointer-events-auto mr-2">
+          <button onClick={() => setExerciseMode(!exerciseMode)} className="px-3 py-1.5 bg-white/60 backdrop-blur-md border border-white/50 shadow-sm text-primary rounded-xl font-label-md transition-all hover:bg-white/80 active:scale-95">Demo</button>
+          <button onClick={() => setLangMenuOpen(!langMenuOpen)} className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all active:scale-95 shadow-sm">language</button>
+          <div className={`absolute right-0 top-[100%] mt-2 w-40 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex flex-col p-2 gap-1 origin-top-right transition-all duration-300 ${langMenuOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-95 opacity-0 pointer-events-none'}`}>
+            <button onClick={() => changeLanguage('en-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'en-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>English</button>
+            <button onClick={() => changeLanguage('hi-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'hi-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Hindi</button>
+            <button onClick={() => changeLanguage('te-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'te-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Telugu</button>
+            <button onClick={() => changeLanguage('ta-IN')} className={`px-4 py-2 rounded-xl text-left font-label-md transition-colors ${language === 'ta-IN' ? 'text-primary font-bold bg-white/80' : 'text-on-surface-variant hover:bg-white/60'}`}>Tamil</button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className={`flex-1 min-h-0 flex flex-col w-full max-w-[1200px] md:w-[94vw] lg:w-[90vw] xl:w-[88vw] mx-auto px-margin-mobile relative md:px-8 lg:px-12 pt-16 z-10 transition-all duration-700 animate-fade-in-up ${exerciseMode ? 'opacity-30 scale-[0.95] blur-[2px] pointer-events-none' : ''}`} style={{ animationDelay: '0.2s' }}>
+        
+        {/* Chat Thread */}
+        <div className="flex-1 overflow-y-auto pt-4 pb-stack-lg flex flex-col gap-6 hide-scrollbar pr-2" onClick={() => {setMenuOpen(false); setLangMenuOpen(false);}}>
+          {messages.map((m, i) => (
+            <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end self-end max-w-[90%] md:max-w-[65%]' : 'items-start max-w-[90%] md:max-w-[65%]'} animate-msg`}>
+              <span className={`text-label-md text-on-surface-variant mb-2 ${m.role === 'user' ? 'mr-2' : 'ml-2'}`}>
+                {m.role === 'user' ? 'You' : 'Mythri AI'}
+              </span>
+              <div className={`${m.role === 'user' ? 'frosted-plum rounded-tr-sm' : 'frosted-blush rounded-tl-sm'} px-6 py-4 rounded-2xl shadow-sm transition-all hover:shadow-md`}>
+                <p className={`text-body-lg leading-relaxed ${m.role === 'assistant' ? 'text-on-primary-fixed' : 'text-white'}`}>
+                  {m.role === 'assistant' ? (
+                    <TypewriterText text={m.content} animate={!!m.is_new} />
+                  ) : (
+                    m.content
+                  )}
                 </p>
-              </div>
-            </div>
-            
-            <div className="solid-card p-6 flex flex-col justify-center">
-              <span className="font-label-md text-primary mb-3">CURRENT EMOTIONAL RESILIENCE</span>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-2xl">self_improvement</span>
-                <span className="font-body-lg text-secondary font-medium">Emotion: {currentEmotion}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Message List */}
-          <div className="space-y-stack-md w-full">
-            {messages.map((m, i) => {
-              return (
-                <div key={i} className="relative group w-full flex flex-col">
-                  <div className={`flex flex-col gap-2 ${m.role === 'user' ? 'items-end ml-auto max-w-[85%] md:max-w-[70%]' : 'items-start max-w-[85%] md:max-w-[70%]'}`}>
-                    <div 
-                      className={
-                        m.role === 'user' 
-                          ? "user-bubble px-6 py-4" 
-                          : "ai-card px-6 py-4"
-                      }
-                    >
-                      <p className="font-body-md leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-                        {m.role === 'assistant' ? (
-                          <TypewriterText text={m.content} animate={!!m.is_new} />
-                        ) : (
-                          m.content
-                        )}
-                      </p>
-                      
-                      {/* Crisis & Helplines */}
-                      {m.is_crisis && m.helplines && m.helplines.length > 0 && (
-                        <div className="mt-4 p-4 bg-error-container border border-error/20 rounded-xl">
-                          <span className="font-label-sm text-error block mb-2 font-bold">Helpline Information:</span>
-                          <ul className="list-disc pl-5 space-y-1 text-xs text-on-error-container">
-                            {m.helplines.map((h, hi) => (
-                              <li key={hi}>{h}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {/* RAG metadata badge */}
-                      {m.role === 'assistant' && m.rag_used && (
-                        <div className="mt-3 flex items-center gap-1 text-[10px] text-primary bg-primary-container px-2 py-0.5 rounded-full w-fit">
-                          <span className="material-symbols-outlined text-[12px]">library_books</span>
-                          <span>Sanctuary Library Referenced</span>
-                        </div>
-                      )}
-                    </div>
+                {/* Crisis & Helplines */}
+                {m.is_crisis && m.helplines && m.helplines.length > 0 && (
+                  <div className="mt-4 p-4 bg-error-container/80 border border-error/20 rounded-xl">
+                    <span className="font-label-sm text-error block mb-2 font-bold">Helpline Information:</span>
+                    <ul className="list-disc pl-5 space-y-1 text-xs text-on-error-container">
+                      {m.helplines.map((h, hi) => (
+                        <li key={hi}>{h}</li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
-              )
-            })}
+                )}
+                {/* RAG metadata badge */}
+                {m.role === 'assistant' && m.rag_used && (
+                  <div className="mt-3 flex items-center gap-1 text-[10px] text-primary/80 bg-white/30 px-2 py-0.5 rounded-full w-fit">
+                    <span className="material-symbols-outlined text-[12px]">library_books</span>
+                    <span>Sanctuary Library Referenced</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
 
-            {/* Thinking Indicator */}
-            {loading && (
-              <div className="flex items-center gap-3 text-on-surface-variant ml-4 py-2 animate-pulse w-full max-w-[70%]">
-                <span className="font-label-sm uppercase tracking-widest text-[10px]">Mitra is typing</span>
+          {loading && (
+            <div className="flex flex-col items-start transition-opacity duration-300">
+              <span className="text-label-md text-on-surface-variant mb-2 ml-2">Mythri AI</span>
+              <div className="frosted-blush px-5 py-3.5 rounded-2xl rounded-tl-sm flex items-center gap-3 shadow-sm">
+                <span className="text-body-md text-primary font-medium italic">Mythri is thinking</span>
                 <div className="flex gap-1">
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
-                  <span className="typing-dot"></span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                 </div>
               </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-        </section>
-
-        {/* Floating Input Layer */}
-        <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/90 backdrop-blur-md border-t border-outline-variant/30 pb-stack-md pt-4">
-          <div className="max-w-[1000px] mx-auto w-full px-margin-mobile md:px-margin-desktop">
-            
-            {/* Quick Replies */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
-              {quickReplies.map((q, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => handleTextSend(q.text)} 
-                  className="bg-surface-container border border-outline-variant px-5 py-2 rounded-full font-label-md text-primary whitespace-nowrap hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 text-xs shadow-sm cursor-pointer"
-                >
-                  {q.label}
-                </button>
-              ))}
             </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input Bar Section */}
+        <div className="sticky bottom-0 bg-transparent pt-4 pb-safe pb-4 md:pb-8 w-full z-30 pointer-events-none">
+          <div className="mb-6 md:mb-0 pointer-events-auto flex flex-col items-center w-full">
             
-            {/* Input Bar */}
-            <div className="solid-card p-2 flex items-center gap-2 border border-outline-variant bg-surface">
-              <textarea 
+            {/* Animated Quick Replies */}
+            <div className={`w-full transition-all duration-500 ease-in-out overflow-hidden ${showQuickReplies ? 'max-h-32 opacity-100 mb-4' : 'max-h-0 opacity-0 mb-0'}`}>
+              <div className="flex flex-wrap justify-center gap-3 w-full px-2">
+                {quickReplies.map((q, i) => (
+                  <button key={i} onClick={() => handleTextSend(q)} className="bg-white/60 backdrop-blur-md border border-white/60 px-5 py-2.5 rounded-full text-label-md hover:bg-white/80 hover:shadow-md active:scale-95 transition-all shadow-sm text-on-surface-variant">
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Floating Glass Composer */}
+            <div className={`relative flex items-center gap-2 md:gap-4 backdrop-blur-3xl border border-white/60 rounded-[2rem] p-2 md:p-3 pl-6 md:pl-8 focus-within:border-white transition-all shadow-lg hover:shadow-xl w-full ${exerciseMode ? 'bg-white/50' : 'bg-white/75'}`}>
+              <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={handleTextareaChange}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleTextSend() } }}
-                className="flex-grow bg-transparent border-none focus:ring-0 font-body-md text-on-surface resize-none py-3 px-4 placeholder:text-on-surface-variant max-h-32 focus:outline-none" 
-                placeholder="Share your thoughts..." 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-body-md py-2 md:py-3 resize-none max-h-24 md:max-h-32 hide-scrollbar text-on-surface placeholder:text-on-surface-variant/70 font-body-md focus:outline-none"
+                placeholder={inputPlaceholder}
                 rows={1}
+                disabled={loading}
               />
-              <div className="flex items-center gap-2 pr-2">
-                <button 
-                  onClick={() => router.push('/voice')}
-                  className="w-12 h-12 rounded-full bg-surface-container-high text-primary flex items-center justify-center hover:bg-primary-container transition-colors active:scale-95 cursor-pointer border border-outline-variant"
-                  title="Voice Mode"
-                >
-                  <span className="material-symbols-outlined">mic</span>
-                </button>
-                <button 
+              <div className="flex items-center gap-1 md:gap-2 pr-1">
+                <button onClick={() => router.push('/voice')} className="material-symbols-outlined text-primary bg-primary/10 md:bg-transparent md:text-outline p-2.5 hover:bg-white/60 rounded-full transition-colors hover:text-primary active:scale-95 shadow-sm md:shadow-none">mic</button>
+                <button
                   onClick={() => handleTextSend()}
                   disabled={!input.trim() || loading}
-                  className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center hover:opacity-90 transition-opacity active:scale-95 disabled:opacity-40 cursor-pointer"
-                  title="Send Message"
+                  className="bg-primary md:bg-primary-container text-on-primary p-3 md:p-3.5 rounded-full hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-sm hover:shadow-md disabled:opacity-40"
                 >
-                  <span className="material-symbols-outlined">send</span>
+                  <span className="material-symbols-outlined text-[20px] md:text-[22px]">arrow_upward</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
       </main>
-
-
-    </div>
+    </>
   )
 }
