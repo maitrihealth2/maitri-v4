@@ -20,12 +20,11 @@ Accessing mental health care is often hindered by stigma, high costs, and a lack
 ## 🚀 What's Built So Far
 Mythri currently features a robust, modern architecture with a full end-to-end pipeline:
 
-- **Real-Time Voice Pipeline:** Deep integration with Sarvam AI for high-accuracy Speech-to-Text (STT) and emotionally expressive Text-to-Speech (TTS).
+- **Real-Time Voice Pipeline:** Deep integration with Sarvam AI for high-accuracy Speech-to-Text (STT) and emotionally expressive Text-to-Speech (TTS). Includes advanced, language-aware text chunking to ensure natural pitch and cadence for dense regional scripts (Telugu, Tamil, Hindi).
 - **Contextual AI Engine:** An advanced LLM system with an underlying Neural Analyst, designed to evaluate conversation history, detect emotional shifts, and provide therapeutic responses.
-- **Emotion & Crisis Detection:** Real-time analysis to gauge the user's emotional state and instantly flag high-risk phrases.
-- **RAG Knowledge Base:** Context-aware generation drawing from established psychological frameworks.
-- **Interactive Modern UI:** A calming, responsive frontend built with Next.js 16, React 19, Tailwind CSS v4, HeroUI, and Framer Motion.
-- **Robust Backend:** A high-performance FastAPI Python backend managing JWT authentication, streaming pipelines, and SQLite session history.
+- **Emotion & Crisis Detection:** Real-time analysis using local HuggingFace transformers pipelines to gauge the user's emotional state and instantly flag high-risk phrases.
+- **Interactive Modern UI:** A calming, responsive frontend built with Next.js 16, React 19, and Tailwind CSS. Features a dynamic, **circular radial audio spectrum visualizer** that reacts perfectly symmetrically to voice frequencies.
+- **Robust Backend & Telemetry:** A high-performance FastAPI Python backend managing JWT authentication, Server-Sent Events (SSE) for live telemetry, and an HTML-based live architecture visualizer.
 
 ---
 
@@ -35,18 +34,22 @@ Mythri currently features a robust, modern architecture with a full end-to-end p
 mindbridge/
 │
 ├── backend/
-│   ├── app.py                        ← FastAPI entry point (run this)
+│   ├── app.py                        ← FastAPI entry point
 │   ├── requirements.txt              ← Python packages
-│   ├── .env                          ← Your API keys (create this)
+│   ├── .env                          ← API keys
 │   │
 │   ├── api/
 │   │   ├── auth.py                   ← Register / Login / JWT routes
 │   │   ├── consultation.py           ← Chat / Session / History routes
-│   │   └── voice.py                  ← Voice pipeline routes
+│   │   ├── voice.py                  ← Voice pipeline routes
+│   │   ├── streaming.py              ← Streaming responses
+│   │   └── telemetry.py              ← SSE live telemetry feed
 │   │
 │   ├── ai_engine/
 │   │   ├── sarvam_client.py          ← Sarvam AI (LLM) integration
-│   │   └── analyst.py                ← Neural Analyst context engine
+│   │   ├── voice_client.py           ← Text chunking & translation layer
+│   │   ├── analyst.py                ← Neural Analyst context engine
+│   │   └── emotion_detector.py       ← Local HuggingFace sentiment pipeline
 │   │
 │   ├── db/
 │   │   └── models.py                 ← SQLAlchemy DB models + init
@@ -55,20 +58,19 @@ mindbridge/
 │       ├── auth.py                   ← Password hashing + JWT utils
 │       └── crisis_handler.py         ← Safety / crisis detection
 │
-└── frontend/
-    ├── package.json                  ← Next.js dependencies
-    ├── .env.local                    ← NEXT_PUBLIC_API_URL
-    │
-    ├── lib/
-    │   └── api.ts                    ← All API calls to backend
-    │
-    └── app/
-        ├── layout.tsx                ← Root layout + Google Fonts
-        ├── globals.css               ← Global styles + CSS variables
-        ├── consultation/
-        │   └── page.tsx              ← Chat/Voice with Mythri
-        └── history/
-            └── page.tsx              ← Session history + transcripts
+├── frontend/
+│   ├── package.json                  ← Next.js dependencies
+│   ├── .env.local                    ← NEXT_PUBLIC_API_URL
+│   │
+│   ├── lib/
+│   │   └── api.ts                    ← API wrapper functions
+│   │
+│   └── app/
+│       ├── voice/page.tsx            ← Voice Chat with radial visualizer
+│       ├── consultation/page.tsx     ← Text Chat mode
+│       └── history/page.tsx          ← Session history + transcripts
+│
+└── architecture_flow.html            ← Live system architecture visualizer
 ```
 
 ---
@@ -114,6 +116,7 @@ npm run dev
 ```
 
 Open your browser and navigate to: **http://localhost:3000**
+To view the live telemetry architecture board: **Open `architecture_flow.html` in your browser.**
 
 ---
 
@@ -121,7 +124,6 @@ Open your browser and navigate to: **http://localhost:3000**
 
 - `backend\.env` must exist with your Sarvam API key before starting.
 - If you need to reset the DB: `del mindbridge\backend\mindbridge.db` then restart the uvicorn server.
-- The `__init__.py` files inside the backend subfolders MUST exist for Python to recognize the packages.
 
 ---
 
