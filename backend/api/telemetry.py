@@ -1,6 +1,6 @@
 import asyncio
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
 
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
@@ -28,7 +28,7 @@ async def broadcast_event(event_type: str, message: str = "", data: dict = None)
             print(f"[TELEMETRY] Error putting event in queue: {e}")
 
 @router.get("/stream")
-async def stream():
+async def stream(request: Request):
     """
     SSE Endpoint for real-time visualization.
     Clients connect to this to receive live routing events.
@@ -40,10 +40,18 @@ async def stream():
     async def event_generator():
         try:
             while True:
-                # Wait for the next message from the queue
-                msg = await q.get()
-                yield msg
+                if await request.is_disconnected():
+                    break
+                try:
+                    # Wait at most 1 second for a message
+                    msg = await asyncio.wait_for(q.get(), timeout=1.0)
+                    yield msg
+                except asyncio.TimeoutError:
+                    # Loop unblocks every 1s to allow Uvicorn to safely process shutdown signals
+                    pass
         except asyncio.CancelledError:
+            pass
+        finally:
             print("[TELEMETRY] Client disconnected.")
             if q in _clients:
                 _clients.remove(q)

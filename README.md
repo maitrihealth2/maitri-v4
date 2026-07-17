@@ -24,8 +24,10 @@ Mythri currently features a robust, modern architecture with a full end-to-end p
 - **Contextual AI Engine:** An advanced LLM system with an underlying Neural Analyst, designed to evaluate conversation history, detect emotional shifts, and provide therapeutic responses.
 - **Emotion & Crisis Detection:** Real-time analysis using local HuggingFace transformers pipelines to gauge the user's emotional state and instantly flag high-risk phrases.
 - **Interactive Modern UI:** A calming, responsive frontend built with Next.js 16, React 19, and Tailwind CSS. Features a dynamic, **circular radial audio spectrum visualizer** that reacts perfectly symmetrically to voice frequencies.
-- **Robust Backend & Telemetry:** A high-performance FastAPI Python backend managing JWT authentication, Server-Sent Events (SSE) for live telemetry, and an HTML-based live architecture visualizer.
-
+- **Interactive Exercises:** Automated pop-up exercises (Box Breathing, Grounding, Reflection) that perfectly synchronize with the AI's response generation to provide immediate, actionable relief during crisis or high stress.
+- **Enhanced Languaging:** Highly tuned regional prompts to ensure a natural conversational tone (e.g., proper Hinglish blending) and suppress melodramatic or overly sad biases in Telugu and Tamil.
+- **Robust Backend & Telemetry:** A high-performance FastAPI Python backend managing JWT authentication, Server-Sent Events (SSE) for live telemetry, and an HTML-based live architecture visualizer that routes packets in real-time.
+- **Windows-Optimized Reloading:** Backend utilizes `nodemon` to completely bypass native Windows/Uvicorn signal crashing, ensuring stable hot-reloading even with heavy local PyTorch processes.
 ---
 
 ## 📂 File & Folder Tree
@@ -106,7 +108,8 @@ npm install
 ```powershell
 cd mindbridge\backend
 .\venv\Scripts\activate
-uvicorn app:app --reload --port 8000
+# We use nodemon to securely hot-reload the server on Windows and bypass Uvicorn crash bugs
+npx nodemon --watch api --watch ai_engine --watch db -e py --exec "uvicorn app:app --port 8000"
 ```
 
 **Terminal 2 — Frontend:**

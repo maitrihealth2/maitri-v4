@@ -15,14 +15,20 @@ interface Message {
   rag_used?: boolean
   via?: 'text' | 'voice'
   is_new?: boolean
+  exercise_trigger?: string
 }
 
-function TypewriterText({ text, animate }: { text: string; animate: boolean }) {
+function TypewriterText({ text, animate, onComplete }: { text: string; animate: boolean, onComplete?: () => void }) {
   const [displayed, setDisplayed] = useState(animate ? '' : text)
+  const completedRef = useRef(false)
   
   useEffect(() => {
     if (!animate) {
       setDisplayed(text)
+      if (onComplete && !completedRef.current) {
+        completedRef.current = true
+        onComplete()
+      }
       return
     }
     
@@ -37,11 +43,15 @@ function TypewriterText({ text, animate }: { text: string; animate: boolean }) {
         i++
       } else {
         clearInterval(interval)
+        if (onComplete && !completedRef.current) {
+          completedRef.current = true
+          onComplete()
+        }
       }
     }, 50)
     
     return () => clearInterval(interval)
-  }, [text, animate])
+  }, [text, animate, onComplete])
 
   return <>{displayed}</>
 }
@@ -152,10 +162,11 @@ export default function ConsultationPage() {
     try {
       const data = await sendMessage(sessionId, msg, language)
       let cleanResponse = data.response
+      let exercise_trigger = undefined
       
       const match = cleanResponse.match(/\[EXERCISE:\s*(.*?)\]/i)
       if (match) {
-        setExerciseMode(match[1].toUpperCase())
+        exercise_trigger = match[1].toUpperCase()
         cleanResponse = cleanResponse.replace(/\[EXERCISE:\s*(.*?)\]/gi, '').trim()
       }
 
@@ -164,6 +175,7 @@ export default function ConsultationPage() {
         is_crisis: data.is_crisis, helplines: data.helplines,
         emotion: data.emotion, rag_used: data.rag_used,
         is_new: true,
+        exercise_trigger
       }])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue.' }])
@@ -272,7 +284,13 @@ export default function ConsultationPage() {
               <div className={`${m.role === 'user' ? 'frosted-plum rounded-tr-sm' : 'frosted-blush rounded-tl-sm'} px-6 py-4 rounded-2xl shadow-sm transition-all hover:shadow-md`}>
                 <p className={`text-body-lg leading-relaxed ${m.role === 'assistant' ? 'text-on-primary-fixed' : 'text-white'}`}>
                   {m.role === 'assistant' ? (
-                    <TypewriterText text={m.content} animate={!!m.is_new} />
+                    <TypewriterText 
+                      text={m.content} 
+                      animate={!!m.is_new} 
+                      onComplete={() => {
+                        if (m.exercise_trigger) setExerciseMode(m.exercise_trigger)
+                      }} 
+                    />
                   ) : (
                     m.content
                   )}

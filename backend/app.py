@@ -89,3 +89,13 @@ def health():
 @app.get("/")
 def root():
     return {"message": "MindBridge API v3 running", "docs": "/docs"}
+
+
+from fastapi.responses import HTMLResponse
+import os
+
+@app.get("/architecture", response_class=HTMLResponse)
+def architecture_view():
+    path = os.path.join(os.path.dirname(__file__), "..", "architecture_flow.html")
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()

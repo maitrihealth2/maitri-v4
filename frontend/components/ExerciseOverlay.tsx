@@ -47,7 +47,7 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
     }
   }, [exerciseMode, onClose])
 
-  if (!exerciseMode) return null
+
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60)
@@ -149,9 +149,7 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
           <span className="text-label-md text-on-surface-variant">Remaining</span>
         </div>
         
-        <button onClick={onClose} className="px-6 py-2.5 bg-surface-container-high hover:bg-surface-variant text-on-surface-variant rounded-full font-label-md transition-all shadow-sm">
-          End Exercise
-        </button>
+
       </aside>
 
       {/* Mobile Exercise Overlay */}
@@ -186,9 +184,7 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
           <div className="text-display-lg font-display-lg text-primary font-bold mb-1">{formatTime(timeLeft)}</div>
           <span className="text-label-md text-on-surface-variant">Remaining</span>
         </div>
-        <button onClick={onClose} className="w-full py-3.5 bg-surface-container-high hover:bg-surface-variant text-on-surface-variant rounded-2xl font-label-md transition-all shadow-sm">
-          End Exercise
-        </button>
+
       </div>
     </>
   )

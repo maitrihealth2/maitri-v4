@@ -77,7 +77,7 @@ async def send_message(
     asyncio.create_task(broadcast_event("TEXT_START", "Client Keyboard -> FastAPI", {"text": req.message}))
 
     # ── Crisis first ──────────────────────────────────────────────────────────
-    asyncio.create_task(broadcast_event("CRISIS_CHECK", "Checking for triggers"))
+    await broadcast_event("CRISIS_CHECK", "Checking for triggers")
     crisis = check_for_crisis(req.message)
     if crisis.is_crisis:
         db.add(RiskLog(session_id=session.id, user_id=current_user.id,
@@ -95,12 +95,22 @@ async def send_message(
                             emotion_score=1.0, rag_used=False)
 
     # ── Emotion + LLM concurrently ──────────────────────────────────────────
-    asyncio.create_task(broadcast_event("RAG_FETCH", "Fetching knowledge"))
+    async def stagger_telemetry():
+        await asyncio.sleep(0.5)
+        await broadcast_event("RAG_FETCH", "Fetching knowledge")
+        await asyncio.sleep(0.5)
+        await broadcast_event("MEMORY_FETCH", "Fetching cross-session memory")
+        await asyncio.sleep(0.5)
+        await broadcast_event("EMOTION_FETCH", "Analyzing tone")
+        await asyncio.sleep(0.5)
+        await broadcast_event("LLM_START", "Synthesizing Prompt -> LLM")
+        
+    asyncio.create_task(stagger_telemetry())
+
     rag_context = retrieve_context(req.message) if RAG_AVAILABLE else ""
     lang_prompt = get_language_prompt(req.language)
 
     # Fetch last 30 messages across all sessions for this user for cross-session memory
-    asyncio.create_task(broadcast_event("MEMORY_FETCH", "Fetching cross-session memory"))
     past = db.query(Message).join(DBSession, Message.session_id == DBSession.id).filter(
         DBSession.user_id == current_user.id
     ).order_by(Message.created_at.desc()).limit(30).all()
@@ -110,13 +120,10 @@ async def send_message(
     history.append({"role": "user", "content": req.message})
 
     # Start tasks concurrently
-    asyncio.create_task(broadcast_event("EMOTION_FETCH", "Analyzing tone"))
     emotion_task = asyncio.create_task(detect_emotion(req.message))
     
     # Run local heuristic immediately (0ms latency) to inform the LLM prompt
     heuristic_emotion = detect_emotion_heuristic(req.message)
-
-    asyncio.create_task(broadcast_event("LLM_START", "Synthesizing Prompt -> LLM"))
 
     llm_task = asyncio.to_thread(
         chat_with_maitri,
