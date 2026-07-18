@@ -115,7 +115,7 @@
                     <div id="status-rag" class="text-[9px] text-slate-500 mt-1">Idle</div>
                 </div>
                 <div class="brain-internal col-span-2" id="brain-analyst">
-                    <span>Cognitive Analyst</span>
+                    <span>Dialogue State Manager (Brain 1)</span>
                     <div>analyst.py</div>
                     <div id="status-analyst" class="text-[9px] text-slate-500 mt-1">Idle</div>
                 </div>
@@ -134,9 +134,9 @@
             </div>
             <div class="w-full border-t border-purple-500/30 mt-2 pt-2">
                 <div class="brain-internal !bg-purple-900/20 !border-purple-400" id="brain-llm">
-                    <span>Sarvam LLM Engine (Maitri)</span>
+                    <span>Maitri LLM Speaker (Brain 2)</span>
                     <div>sarvam_client.py (sarvam-105b)</div>
-                    <div class="text-[8px] text-purple-300 mt-1">GLOBAL_VOICE_PROMPT injected</div>
+                    <div class="text-[8px] text-purple-300 mt-1">Phase Instructions Injected</div>
                     <div id="status-llm" class="text-[10px] text-white mt-1 min-h-[40px] italic">Waiting for context...</div>
                 </div>
             </div>
@@ -208,18 +208,18 @@
 
         <div class="node border-2 border-emerald-500/50" id="f-db" style="left: 1080px; top: 325px; width: 140px;">
             <div class="node-icon bg-slate-800 border border-emerald-500/50"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg></div>
-            <h3>Database</h3>
-            <p class="mono text-[9px] text-emerald-300 mt-1">mindbridge.db</p>
-            <p class="text-[9px] mt-1 text-slate-400">SQLite via ORM</p>
+            <h3>NeonDB Database</h3>
+            <p class="mono text-[9px] text-emerald-300 mt-1">Cloud PostgreSQL</p>
+            <p class="text-[9px] mt-1 text-slate-400">SQLAlchemy ORM</p>
         </div>
     </div>
 
     <!-- 3: AI BRAIN INTERNALS -->
     <header class="text-center mt-20 mb-4 w-full max-w-6xl">
         <h2 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500 mb-2">
-            MindBridge AI Brain Internals (Local + Cloud)
+            MindBridge Dual-Brain Internals (Local + Cloud)
         </h2>
-        <p class="text-slate-400">Cognitive Processing ➔ Local HF Emotion ➔ Memory ➔ RAG ➔ Sarvam API</p>
+        <p class="text-slate-400">Local HF Emotion ➔ Dialogue State Analyst (Brain 1) ➔ Memory/RAG ➔ Maitri Speaker (Brain 2)</p>
     </header>
     <div class="diagram-container" id="diagram-brain">
         <svg class="data-routes" id="svg-routes-brain">
@@ -238,9 +238,10 @@
             <p>Text / Transcribed STT</p>
         </div>
         <div class="node" id="b-analyst" style="left: 320px; top: 325px; width: 140px; border-left: 3px solid #c084fc;">
-            <h3>Cognitive Analyst</h3>
+            <div class="absolute -top-3 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 rounded border border-purple-500/50">BRAIN 1</div>
+            <h3>Dialogue State Analyst</h3>
             <p class="mono text-[9px] text-purple-300 mt-1">analyst.py</p>
-            <p class="text-[9px] mt-1 text-slate-400">Intent & Triage</p>
+            <p class="text-[9px] mt-1 text-slate-400">Phase Instruction</p>
         </div>
         <div class="node" id="b-emo" style="left: 600px; top: 150px; width: 160px; border-left: 3px solid #f472b6;">
             <div class="absolute -top-3 bg-fuchsia-500/20 text-fuchsia-400 text-[9px] px-2 py-0.5 rounded border border-fuchsia-500/50">LOCAL HF MODEL</div>
@@ -254,18 +255,18 @@
             <p class="text-[9px] mt-1 text-slate-400">Knowledge Retrieval</p>
         </div>
         <div class="node" id="b-mem" style="left: 600px; top: 500px; width: 160px; border-left: 3px solid #fbbf24;">
-            <div class="absolute -top-3 bg-yellow-500/20 text-yellow-400 text-[9px] px-2 py-0.5 rounded border border-yellow-500/50">LOCAL SQLITE</div>
+            <div class="absolute -top-3 bg-yellow-500/20 text-yellow-400 text-[9px] px-2 py-0.5 rounded border border-yellow-500/50">NEONDB CLOUD</div>
             <h3>Memory Manager</h3>
-            <p class="mono text-[9px] text-yellow-300 mt-1">sqlite DB</p>
+            <p class="mono text-[9px] text-yellow-300 mt-1">PostgreSQL DB</p>
             <p class="text-[9px] mt-1 text-slate-400">Context & History</p>
         </div>
         <div class="node border-2 border-purple-500/50" id="b-llm" style="left: 970px; top: 325px; width: 240px; background: rgba(15, 23, 42, 0.95); box-shadow: 0 0 30px rgba(168,85,247,0.15);">
-            <div class="absolute -top-3 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 rounded border border-purple-500/50">SARVAM API</div>
+            <div class="absolute -top-3 bg-purple-500/20 text-purple-400 text-[9px] px-2 py-0.5 rounded border border-purple-500/50">BRAIN 2 (SARVAM API)</div>
             <div class="node-icon bg-slate-800 border border-purple-500/50"><svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
-            <h3>Sarvam LLM Engine</h3>
-            <p class="text-[10px] text-purple-300 mt-1 font-bold">"Maitri" Persona</p>
+            <h3>Maitri LLM Speaker</h3>
+            <p class="text-[10px] text-purple-300 mt-1 font-bold">True Companion Persona</p>
             <p class="mono text-[9px] text-slate-300 mt-1">sarvam-105b</p>
-            <p class="text-[10px] text-slate-400 mt-3 text-left bg-black/50 p-2 rounded w-full font-mono">Prompt Synthesizer:<br>+ User Text<br>+ Detected Emotion<br>+ RAG Context<br>+ Memory DB</p>
+            <p class="text-[10px] text-slate-400 mt-3 text-left bg-black/50 p-2 rounded w-full font-mono">Prompt Synthesizer:<br>+ Analyst Phase Instruction<br>+ User Text<br>+ RAG Context<br>+ Memory DB</p>
         </div>
         <div class="node" id="b-out" style="left: 1150px; top: 325px; width: 120px;">
             <h3>Output</h3>

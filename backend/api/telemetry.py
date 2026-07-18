@@ -39,7 +39,7 @@ async def stream(request: Request):
     
     async def event_generator():
         try:
-            while True:
+            while not request.app.state.shutdown_event.is_set():
                 if await request.is_disconnected():
                     break
                 try:

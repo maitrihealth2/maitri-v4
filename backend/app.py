@@ -12,13 +12,17 @@ from api.voice import router as voice_router
 from api.streaming import router as streaming_router
 from api.telemetry import router as telemetry_router
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.shutdown_event = asyncio.Event()
     print("Starting MindBridge backend (Phase 3 — Voice)...")
     init_db()
     print("Database ready")
     yield
     print("Shutting down")
+    app.state.shutdown_event.set()
 
 
 app = FastAPI(

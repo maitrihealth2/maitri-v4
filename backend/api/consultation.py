@@ -110,38 +110,41 @@ async def send_message(
     rag_context = retrieve_context(req.message) if RAG_AVAILABLE else ""
     lang_prompt = get_language_prompt(req.language)
 
-    # Fetch last 30 messages across all sessions for this user for cross-session memory
-    past = db.query(Message).join(DBSession, Message.session_id == DBSession.id).filter(
-        DBSession.user_id == current_user.id
+    # Fetch last 30 messages for this specific session
+    past = db.query(Message).filter(
+        Message.session_id == session.id
     ).order_by(Message.created_at.desc()).limit(30).all()
     past.reverse()
     
     history = [{"role": m.role, "content": m.content} for m in past]
     history.append({"role": "user", "content": req.message})
 
-    # Start tasks concurrently
-    emotion_task = asyncio.create_task(detect_emotion(req.message))
-    
-    # Run local heuristic immediately (0ms latency) to inform the LLM prompt
-    heuristic_emotion = detect_emotion_heuristic(req.message)
+    # ── Sequential Processing: Emotion -> Analyst -> LLM ─────────────────────
+    # 1. Get True Emotion from local HuggingFace pipeline
+    try:
+        emotion = await asyncio.wait_for(detect_emotion(req.message), timeout=2.0)
+    except Exception:
+        emotion = detect_emotion_heuristic(req.message)
 
-    llm_task = asyncio.to_thread(
+    await broadcast_event("EMOTION_DETECTED", f"Detected: {emotion.label}")
+
+    # 2. Get Dialogue Phase from Analyst
+    await broadcast_event("LLM_START", "Analyst Phase Check...")
+    analyst_insight = await analyze_context(history, emotion.label, rag_context)
+
+    # 3. Generate response with Maitri
+    await broadcast_event("LLM_START", "Maitri Generation...")
+    
+    ai_response = await asyncio.to_thread(
         chat_with_maitri,
         messages=history,
         language=req.language,
         rag_context=rag_context,
+        analyst_insight=analyst_insight,
         language_prompt=lang_prompt,
-        user_emotion=heuristic_emotion.label,
     )
-
-    ai_response = await llm_task
-    try:
-        emotion = await asyncio.wait_for(emotion_task, timeout=1.0)
-    except Exception:
-        emotion = heuristic_emotion
-
-    asyncio.create_task(broadcast_event("EMOTION_DETECTED", f"{emotion.label} ({emotion.score:.2f})"))
-    asyncio.create_task(broadcast_event("LLM_DONE", "AI Brain -> FastAPI", {"response": ai_response}))
+    
+    await broadcast_event("LLM_DONE", "Response generated")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     db.add(Message(session_id=session.id, role="user", content=req.message,

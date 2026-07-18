@@ -152,11 +152,21 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
                         print(f"[WS] Sarvam Connection Closed: {sarvam_ws.close_code} {sarvam_ws.close_reason}")
                     except: pass
 
-            # Run both tasks concurrently
+            async def shutdown_monitor():
+                await websocket.app.state.shutdown_event.wait()
+                try:
+                    await websocket.close(code=1001, reason="Server shutting down")
+                except:
+                    pass
+
+            # Run all tasks concurrently
+            monitor_task = asyncio.create_task(shutdown_monitor())
             try:
                 await asyncio.gather(receive_from_sarvam(), send_to_sarvam())
             except asyncio.CancelledError:
                 print(f"[WS] Connection for {session_id} was cancelled (Normal disconnect)")
+            finally:
+                monitor_task.cancel()
 
     except Exception as e:
         print(f"[WS] Critical connection error to Sarvam or Client: {type(e).__name__}: {e}")

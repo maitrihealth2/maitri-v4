@@ -42,14 +42,18 @@ def get_current_user(
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     if db.query(User).filter(User.username == req.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
+    
+    from services.firebase_rest import firebase_client
+    await firebase_client.register(req.email, req.password)
+    
     user = User(
         username=req.username, email=req.email,
-        hashed_password=hash_password(req.password),
+        hashed_password="firebase_managed",
         preferred_language=req.preferred_language,
     )
     db.add(user); db.commit(); db.refresh(user)
@@ -58,10 +62,14 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+async def login(req: LoginRequest, db: Session = Depends(get_db)):
+    from services.firebase_rest import firebase_client
+    await firebase_client.login(req.email, req.password)
+    
     user = db.query(User).filter(User.email == req.email).first()
-    if not user or not verify_password(req.password, user.hashed_password):
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
+        
     token = create_access_token({"user_id": user.id, "username": user.username})
     return TokenResponse(access_token=token, username=user.username)
 

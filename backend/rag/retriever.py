@@ -5,7 +5,6 @@ from ChromaDB and returns them as context for the LLM.
 """
 
 import os
-import chromadb
 
 CHROMA_DIR = os.path.join(os.path.dirname(__file__), "..", "knowledge", "chroma_db")
 COLLECTION_NAME = "therapy_knowledge"
@@ -18,6 +17,7 @@ def get_collection():
     """Lazy-load ChromaDB collection (singleton)."""
     global _client, _collection
     if _collection is None:
+        import chromadb
         _client = chromadb.PersistentClient(path=CHROMA_DIR)
         from chromadb.utils import embedding_functions
         embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(

@@ -10,7 +10,7 @@ import ExerciseOverlay from '../../components/ExerciseOverlay'
 type ConvState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
 const SILENCE_THRESHOLD = 0.05
-const SILENCE_MS = 3000
+const SILENCE_MS = 30000
 
 const translations = {
   en: { statusSpeak: "MYTHRI IS SPEAKING", statusListen: "LISTENING", statusThink: "THINKING", statusMute: "MICROPHONE MUTED", statusPause: "PAUSED", titleListen: "I'm listening to you.", titleThink: "The Space Between Thoughts", titlePause: "Conversation Paused", titleIdle: "Mythri is resting" },
@@ -360,9 +360,7 @@ export default function VoiceModePage() {
       mediaRecorderRef.current = recorder
 
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
-      maxDurationTimerRef.current = setTimeout(() => {
-        if (isListeningRef.current) flushChunk()
-      }, 28000)
+      // Removed 28s auto-flush to allow natural conversation length until silence.
     } catch (e) {
       console.error(e)
     }
@@ -600,7 +598,7 @@ export default function VoiceModePage() {
                 </p>
             </div>
 
-            <div className="relative flex items-center justify-center w-64 h-64 my-6 md:my-12">
+            <div className="relative flex flex-shrink-0 items-center justify-center w-64 h-64 my-6 md:my-12">
                 <div className="orb-ring"></div>
                 <div className="orb w-32 h-32 rounded-full bg-gradient-to-br from-primary-fixed to-secondary-fixed-dim shadow-lg flex items-center justify-center relative z-10 transition-all duration-700">
                     <div className="absolute inset-0 rounded-full bg-white/30 mix-blend-overlay"></div>
@@ -614,11 +612,11 @@ export default function VoiceModePage() {
                   {currentTitle}
                 </h1>
                 
-                <div className="flex flex-col items-center gap-2 w-full text-body-md md:text-body-lg font-body-md text-on-surface-variant min-h-[60px] md:min-h-[80px]">
+                <div className="flex flex-col items-center gap-2 w-full text-body-md md:text-body-lg font-body-md text-on-surface-variant min-h-[60px] md:min-h-[80px] max-h-[25vh] overflow-y-auto px-2">
                     <p className="font-medium text-on-surface-variant italic opacity-70">
                       {userTranscript ? `"${userTranscript}"` : ""}
                     </p>
-                    <p className="font-medium text-primary line-clamp-2">
+                    <p className="font-medium text-primary">
                       {agentResponse}
                     </p>
                 </div>

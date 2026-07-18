@@ -5,7 +5,6 @@ import asyncio
 from dataclasses import dataclass
 from dotenv import load_dotenv
 import pathlib
-from transformers import pipeline
 
 _BASE = pathlib.Path(__file__).resolve().parent.parent
 load_dotenv(_BASE / ".env")
@@ -20,6 +19,7 @@ def get_emotion_pipeline():
     global _emotion_pipeline
     if _emotion_pipeline is None:
         try:
+            from transformers import pipeline
             print(f"[HF Emotion] Loading local transformers pipeline for {HF_MODEL}...")
             # top_k=1 returns [[{'label': '...', 'score': ...}]] format in recent versions, 
             # or [{'label': '...', 'score': ...}] depending on version. We'll handle both.
@@ -126,11 +126,11 @@ async def detect_emotion(text: str) -> EmotionResult:
         return detect_emotion_heuristic(text)
 
     try:
-        # Use local transformers pipeline
-        pipe = get_emotion_pipeline()
+        # Use local transformers pipeline. Load it in a background thread to avoid blocking loop.
+        pipe = await asyncio.to_thread(get_emotion_pipeline)
         
         if pipe and pipe != "FAILED":
-            # Run the heavy inference in a background thread to prevent blocking asyncio loop
+            # Run the heavy inference in a background thread
             results = await asyncio.to_thread(pipe, text)
             
             if results:

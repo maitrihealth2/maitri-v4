@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from db.models import get_db, Session as DBSession, Message, RiskLog, User
-from ai_engine.voice_client import transcribe_audio, synthesize_speech, get_language_prompt, get_supported_languages
+from ai_engine.voice_client import synthesize_speech, get_language_prompt, get_supported_languages
+from ai_engine.stt_batcher import batch_transcribe_audio
 from ai_engine.sarvam_client import chat_with_maitri
 from ai_engine.emotion_detector import detect_emotion, detect_emotion_heuristic
 from ai_engine.analyst import analyze_context
@@ -49,7 +50,7 @@ async def speak(
         audio_bytes = await synthesize_speech(req.text, req.language)
         return Response(content=audio_bytes, media_type="audio/wav")
     except Exception as e:
-        traceback.print_exc()
+        print(f"[VOICE] Speak failed: {type(e).__name__} - {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -64,10 +65,10 @@ async def transcribe(
     if len(audio_bytes) < 500:
         return {"transcript": "", "language": language}
     try:
-        transcript = await transcribe_audio(audio_bytes, language)
+        transcript = await batch_transcribe_audio(audio_bytes, language)
         return {"transcript": transcript, "language": language}
     except Exception as e:
-        traceback.print_exc()
+        print(f"[VOICE] Transcribe failed: {type(e).__name__} - {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -92,9 +93,26 @@ async def handle_voice_turn(
         raise HTTPException(status_code=404, detail="Session not found")
     print(f"[VOICE] Session DB id={session.id} OK")
 
-    if not transcript or not transcript.strip():
-        print("[VOICE] Empty transcript — treating as silence to prompt user")
-        transcript = "[Silence]"
+    # Filter known STT hallucinations when there's background noise
+    known_hallucinations = [
+        "thank you.", "thank you", "subscribe", "subscribe.", 
+        "subscribe to the channel", "subtitles by amara.org", 
+        "[silence]", "you", "thanks."
+    ]
+    cleaned_transcript = transcript.strip().lower()
+    if not cleaned_transcript or cleaned_transcript in known_hallucinations or len(cleaned_transcript) < 2:
+        print(f"[VOICE] Empty or hallucinated transcript: '{transcript}' — treating as silence")
+        return {
+            "transcript": "",
+            "response": "",
+            "audio_b64": "",
+            "is_crisis": False,
+            "helplines": [],
+            "emotion": "Neutral",
+            "emotion_emoji": "😐",
+            "emotion_score": 0.0,
+            "rag_used": False,
+        }
         
     await broadcast_event("STT_DONE", f"Transcribed text", {"text": transcript})
 
@@ -138,58 +156,50 @@ async def handle_voice_turn(
     lang_prompt = get_language_prompt(language)
     lang_prompt += " Keep your response conversational and natural, as this is a real-time voice call. Provide clear reasoning if needed."
 
-    # Fetch last 30 messages across all sessions for this user for cross-session memory
-    past = db.query(Message).join(DBSession, Message.session_id == DBSession.id).filter(
-        DBSession.user_id == current_user.id
+    # Fetch last 30 messages for this specific session
+    past = db.query(Message).filter(
+        Message.session_id == session.id
     ).order_by(Message.created_at.desc()).limit(30).all()
     past.reverse()
     
     history = [{"role": m.role, "content": m.content} for m in past]
     history.append({"role": "user", "content": transcript})
     
-    # Bypass Context Analysis for voice turns to save latency
-    analyst_insight = ""
-
-    # Start deep-learning emotion detection concurrently in the background
-    emotion_task = asyncio.create_task(detect_emotion(transcript))
-
-    # Call heuristic emotion locally (0ms latency) to immediately inform LLM
-    heuristic_emotion = detect_emotion_heuristic(transcript)
-
-    # Call LLM thread with custom max_tokens for speed, passing heuristic emotion
-    llm_task = asyncio.to_thread(
-        chat_with_maitri,
-        messages=history,
-        language=language,
-        rag_context=rag_context,
-        analyst_insight=analyst_insight,
-        language_prompt=lang_prompt,
-        max_tokens=1500,
-        reasoning_effort=None,
-        user_emotion=heuristic_emotion.label,
-    )
-
+    # ── Sequential Processing: Emotion -> Analyst -> LLM ─────────────────────
+    # 1. Get True Emotion from local HuggingFace pipeline
     try:
-        await broadcast_event("LLM_START", "AI Brain Cluster running...")
-        ai_response = await llm_task
-        
-        # Await the deep-learning emotion result (enforcing a strict 1.0s timeout to prevent lag)
-        try:
-            emotion = await asyncio.wait_for(emotion_task, timeout=1.0)
-            print(f"[VOICE] DL Emotion: {emotion.label} ({emotion.score:.2f})")
-        except Exception as te:
-            print(f"[VOICE] DL Emotion timeout/error ({type(te).__name__}), falling back to heuristic: {heuristic_emotion.label}")
-            emotion = heuristic_emotion
+        emotion = await asyncio.wait_for(detect_emotion(transcript), timeout=2.0)
+        print(f"[VOICE] DL Emotion: {emotion.label} ({emotion.score:.2f})")
+    except Exception as te:
+        print(f"[VOICE] DL Emotion timeout/error, falling back to heuristic")
+        emotion = detect_emotion_heuristic(transcript)
 
-        await broadcast_event("EMOTION_DETECTED", f"Detected: {emotion.label}", {"emotion": emotion.label, "score": emotion.score})
+    await broadcast_event("EMOTION_DETECTED", f"Detected: {emotion.label}", {"emotion": emotion.label, "score": emotion.score})
+
+    # 2. Get Dialogue Phase from Analyst
+    await broadcast_event("LLM_START", "Analyst Phase Check...")
+    analyst_insight = await analyze_context(history, emotion.label, rag_context)
+    print(f"[VOICE] Analyst Instruction: {analyst_insight}")
+
+    # 3. Generate response with Maitri (passing the phase instruction)
+    await broadcast_event("LLM_START", "Maitri Generation...")
+    
+    try:
+        ai_response = await asyncio.to_thread(
+            chat_with_maitri,
+            messages=history,
+            language=language,
+            rag_context=rag_context,
+            analyst_insight=analyst_insight,
+            language_prompt=lang_prompt,
+            max_tokens=1500,
+            reasoning_effort=None,
+        )
         await broadcast_event("LLM_DONE", "Response generated", {"response": ai_response})
-
         print(f"[VOICE] LLM response: '{ai_response[:80]}...'")
     except Exception as e:
-        import traceback as tb
-        error_trace = tb.format_exc()
-        print(f"[VOICE] LLM call failed:\n{error_trace}")
-        raise HTTPException(status_code=500, detail={"message": f"LLM pipeline failed: {str(e)}", "traceback": error_trace})
+        print(f"[VOICE] LLM call failed: {type(e).__name__} - {e}")
+        raise HTTPException(status_code=500, detail={"message": f"LLM pipeline failed: {str(e)}"})
 
     # ── Save to DB ────────────────────────────────────────────────────────────
     try:
@@ -199,9 +209,7 @@ async def handle_voice_turn(
                        content=ai_response, language=language))
         db.commit()
     except Exception as e:
-        import traceback as tb
-        tb.print_exc()
-        print(f"[VOICE] DB save failed (continuing): {e}")
+        print(f"[VOICE] DB save failed (continuing): {type(e).__name__} - {e}")
 
     # ── TTS ───────────────────────────────────────────────────────────────────
     print(f"[VOICE] Calling TTS...")
@@ -220,9 +228,7 @@ async def handle_voice_turn(
         await broadcast_event("ROUTING", "FastAPI -> Client WebSocket Playback")
         print(f"[VOICE] TTS OK, audio size={len(response_audio)} bytes")
     except Exception as e:
-        import traceback as tb
-        tb.print_exc()
-        print(f"[VOICE] TTS failed: {e}")
+        print(f"[VOICE] TTS failed: {type(e).__name__} - {e}")
 
     return {
         "transcript": transcript,
@@ -257,11 +263,10 @@ async def voice_conversation(
     # ── STT ───────────────────────────────────────────────────────────────────
     try:
         await broadcast_event("ROUTING", "FastAPI -> Sarvam STT API")
-        await broadcast_event("STT_START", "Transcribing...")
-        transcript = await transcribe_audio(audio_bytes, language)
+        await broadcast_event("STT_START", "Transcribing (Batched)...")
+        transcript = await batch_transcribe_audio(audio_bytes, language)
     except Exception as e:
-        import traceback as tb
-        error_trace = tb.format_exc()
-        raise HTTPException(status_code=500, detail={"message": f"STT failed: {str(e)}", "traceback": error_trace})
+        print(f"[VOICE] STT failed: {type(e).__name__} - {e}")
+        raise HTTPException(status_code=500, detail={"message": f"STT failed: {str(e)}"})
 
     return await handle_voice_turn(transcript, session_id, language, current_user, db)
