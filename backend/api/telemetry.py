@@ -39,16 +39,29 @@ async def stream(request: Request):
     
     async def event_generator():
         try:
-            while not request.app.state.shutdown_event.is_set():
+            while True:
                 if await request.is_disconnected():
                     break
-                try:
-                    # Wait at most 1 second for a message
-                    msg = await asyncio.wait_for(q.get(), timeout=1.0)
-                    yield msg
-                except asyncio.TimeoutError:
-                    # Loop unblocks every 1s to allow Uvicorn to safely process shutdown signals
-                    pass
+                if request.app.state.shutdown_event.is_set():
+                    break
+                # Race the queue.get against the shutdown event so we exit instantly
+                get_task = asyncio.ensure_future(q.get())
+                shutdown_task = asyncio.ensure_future(
+                    request.app.state.shutdown_event.wait()
+                )
+                done, pending = await asyncio.wait(
+                    [get_task, shutdown_task],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                for p in pending:
+                    p.cancel()
+                if shutdown_task in done:
+                    break
+                if get_task in done:
+                    try:
+                        yield get_task.result()
+                    except Exception:
+                        break
         except asyncio.CancelledError:
             pass
         finally:

@@ -63,7 +63,7 @@ export default function ProfilePage() {
                 </div>
             </header>
 
-            <main className="relative z-10 h-screen w-full max-w-screen-xl mx-auto px-4 md:px-margin-desktop pb-24 md:pb-8 flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-16 pt-24 overflow-y-auto md:overflow-hidden animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            <main className="relative z-10 h-[100dvh] w-full max-w-screen-xl mx-auto px-4 md:px-margin-desktop pb-24 md:pb-8 flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-16 pt-24 overflow-y-auto md:overflow-hidden animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                 
                 {/* Left Sidebar: Profile Overview & Navigation */}
                 <aside className="w-full md:w-1/4 flex flex-col gap-6 md:h-full md:overflow-y-auto hide-scrollbar shrink-0">

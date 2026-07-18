@@ -152,8 +152,18 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
                         print(f"[WS] Sarvam Connection Closed: {sarvam_ws.close_code} {sarvam_ws.close_reason}")
                     except: pass
 
+            # Task refs captured here so shutdown_monitor can cancel them
+            t1: asyncio.Task | None = None
+            t2: asyncio.Task | None = None
+
             async def shutdown_monitor():
                 await websocket.app.state.shutdown_event.wait()
+                print(f"[WS] Shutdown signal received for {session_id}. Force-cancelling tasks.")
+                # Directly cancel the I/O tasks so asyncio.wait() unblocks immediately
+                if t1 and not t1.done():
+                    t1.cancel()
+                if t2 and not t2.done():
+                    t2.cancel()
                 try:
                     await websocket.close(code=1001, reason="Server shutting down")
                 except:
@@ -161,12 +171,23 @@ async def streaming_stt(websocket: WebSocket, session_id: str):
 
             # Run all tasks concurrently
             monitor_task = asyncio.create_task(shutdown_monitor())
+            t1 = asyncio.create_task(receive_from_sarvam())
+            t2 = asyncio.create_task(send_to_sarvam())
             try:
-                await asyncio.gather(receive_from_sarvam(), send_to_sarvam())
+                done, pending = await asyncio.wait(
+                    [t1, t2, monitor_task],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                # Cancel all remaining tasks to release all resources
+                for task in pending:
+                    task.cancel()
+                # Await cancellation to suppress warnings
+                await asyncio.gather(*pending, return_exceptions=True)
             except asyncio.CancelledError:
                 print(f"[WS] Connection for {session_id} was cancelled (Normal disconnect)")
             finally:
-                monitor_task.cancel()
+                if not monitor_task.done():
+                    monitor_task.cancel()
 
     except Exception as e:
         print(f"[WS] Critical connection error to Sarvam or Client: {type(e).__name__}: {e}")

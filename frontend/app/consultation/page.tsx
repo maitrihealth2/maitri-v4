@@ -108,10 +108,18 @@ export default function ConsultationPage() {
     const storedLang = localStorage.getItem('mb_language')
     if (storedLang) setLanguage(storedLang)
 
+    const handleLangEvent = () => {
+      const newLang = localStorage.getItem('mb_language')
+      if (newLang) setLanguage(newLang)
+    }
+    window.addEventListener('mb_language_changed', handleLangEvent)
+
     if (!initialized.current) {
       initialized.current = true
       initSession()
     }
+    
+    return () => window.removeEventListener('mb_language_changed', handleLangEvent)
   }, [router])
 
   useEffect(() => {
@@ -272,7 +280,7 @@ export default function ConsultationPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className={`flex-1 min-h-0 flex flex-col w-full max-w-[1200px] md:w-[94vw] lg:w-[90vw] xl:w-[88vw] mx-auto px-margin-mobile relative md:px-8 lg:px-12 pt-16 z-10 transition-all duration-700 animate-fade-in-up ${exerciseMode ? 'opacity-30 scale-[0.95] blur-[2px] pointer-events-none' : ''}`} style={{ animationDelay: '0.2s' }}>
+      <main className={`flex-1 min-h-0 flex flex-col w-full max-w-[1200px] md:w-[94vw] lg:w-[90vw] xl:w-[88vw] mx-auto px-margin-mobile relative md:px-8 lg:px-12 pt-20 md:pt-16 pb-24 md:pb-0 z-10 transition-all duration-700 animate-fade-in-up ${exerciseMode ? 'opacity-30 scale-[0.95] blur-[2px] pointer-events-none' : ''}`} style={{ animationDelay: '0.2s' }}>
         
         {/* Chat Thread */}
         <div className="flex-1 overflow-y-auto pt-4 pb-stack-lg flex flex-col gap-6 hide-scrollbar pr-2" onClick={() => {setMenuOpen(false); setLangMenuOpen(false);}}>

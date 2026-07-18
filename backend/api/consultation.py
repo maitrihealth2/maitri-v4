@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from db.models import get_db, Session as DBSession, Message, RiskLog, User
+from db.models import get_db, Session as DBSession, Message, MessageEmotion, RiskLog, User
 from ai_engine.sarvam_client import chat_with_maitri
 from ai_engine.emotion_detector import detect_emotion, detect_emotion_heuristic
+from ai_engine.analyst import analyze_context
 from ai_engine.voice_client import get_language_prompt
 from services.crisis_handler import check_for_crisis
 from api.auth import get_current_user
@@ -82,17 +83,9 @@ async def send_message(
     if crisis.is_crisis:
         db.add(RiskLog(session_id=session.id, user_id=current_user.id,
                        trigger_phrase=crisis.trigger_phrase or req.message[:200],
-                       system_response=crisis.response, helpline_shown=True))
+                       system_response="AI intervened with extreme comfort.", helpline_shown=True))
         session.is_crisis_flagged = True
-        db.add(Message(session_id=session.id, role="user", content=req.message,
-                       is_crisis_flagged=True, language=req.language, emotion="Crisis"))
-        db.add(Message(session_id=session.id, role="assistant",
-                       content=crisis.response, is_crisis_flagged=True, language=req.language))
         db.commit()
-        return ChatResponse(response=crisis.response, is_crisis=True,
-                            helplines=crisis.helplines, session_id=req.session_id,
-                            emotion="Crisis", emotion_emoji="🚨",
-                            emotion_score=1.0, rag_used=False)
 
     # ── Emotion + LLM concurrently ──────────────────────────────────────────
     async def stagger_telemetry():
@@ -142,19 +135,25 @@ async def send_message(
         rag_context=rag_context,
         analyst_insight=analyst_insight,
         language_prompt=lang_prompt,
+        is_crisis=crisis.is_crisis,
     )
     
     await broadcast_event("LLM_DONE", "Response generated")
 
     # ── Save ──────────────────────────────────────────────────────────────────
-    db.add(Message(session_id=session.id, role="user", content=req.message,
-                   language=req.language, emotion=emotion.label, emotion_score=emotion.score))
-    db.add(Message(session_id=session.id, role="assistant",
-                   content=ai_response, language=req.language))
+    user_msg = Message(session_id=session.id, role="user", content=req.message, language=req.language)
+    db.add(user_msg)
+    db.flush() # get user_msg.id
+    
+    if emotion and emotion.label:
+        db.add(MessageEmotion(message_id=user_msg.id, emotion_label=emotion.label, score=emotion.score))
+        
+    ai_msg = Message(session_id=session.id, role="assistant", content=ai_response, language=req.language)
+    db.add(ai_msg)
     db.commit()
 
     return ChatResponse(
-        response=ai_response, is_crisis=False, helplines=[],
+        response=ai_response, is_crisis=crisis.is_crisis, helplines=crisis.helplines if crisis.is_crisis else [],
         session_id=req.session_id, emotion=emotion.label,
         emotion_emoji=emotion.emoji, emotion_score=emotion.score,
         rag_used=bool(rag_context),
@@ -186,9 +185,8 @@ def get_transcript(
     ).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    messages = db.query(Message).filter(
-        Message.session_id == session.id
-    ).order_by(Message.created_at).all()
+    # Using the new ORM relationship defined in models.py, we can just access session.messages
+    # They are already ordered by created_at natively!
     return {
         "session_id": session_id,
         "started_at": session.started_at,
@@ -196,6 +194,7 @@ def get_transcript(
         "messages": [{
             "role": m.role, "content": m.content,
             "created_at": m.created_at, "language": m.language,
-            "emotion": m.emotion, "emotion_score": m.emotion_score,
-        } for m in messages],
+            "emotion": m.emotion.emotion_label if m.emotion else None, 
+            "emotion_score": m.emotion.score if m.emotion else None,
+        } for m in session.messages],
     }

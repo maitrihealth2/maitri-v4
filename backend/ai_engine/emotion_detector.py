@@ -30,61 +30,58 @@ def get_emotion_pipeline():
     return _emotion_pipeline
 
 EMOTION_KEYWORDS = {
-    "Anger": [
-        "angry", "anger", "furious", "mad", "annoyed", "pissed", "hate", "irritated", "frustrated",
-        "gussa", "chidh", "naraz", "kopam", "kopamga", "frustration", "rage", "irritating", 
-        "fuming", "outraged", "annoy", "nonsense", "hate this", "screwing", "fed up", 
-        "pissing me off", "gusse", "krodh", "dimag kharab", "gussa aa raha", "aag babula", 
-        "naaraaz", "kovam", "erichal", "kovama", "veruppu", "kadupu", "kaduppu", "asahanam", 
-        "chiraaku", "chiraku", "krodham"
-    ],
-    "Anxiety": [
-        "anxious", "scared", "fear", "worried", "nervous", "panic", "stress", "tense", "stressed",
-        "darr", "chinta", "fikr", "dar", "bayama", "bhayama", "tension", "shaking", "restless", 
-        "dread", "uneasy", "overthinking", "nervousness", "stressing", "heart racing", "worries", 
-        "paranoid", "anxiety", "gabrahat", "ghabrahat", "dara hua", "bechaini", "bechain", "bayam", 
-        "padhabadhapu", "kavalai", "acham", "dhik dhik", "bhyama", "bhayam", "kangaaru", "kangaru", 
-        "andholana", "andolana"
-    ],
-    "Sadness": [
-        "sad", "depressed", "unhappy", "cry", "lonely", "hopeless", "hurt", "pain", "crying",
-        "udaas", "udas", "dukh", "rona", "akela", "sonthama", "badhava", "sadness", "miserable", 
-        "heartbroken", "down", "grief", "gloomy", "heavy heart", "weeping", "loneliness", "empty", 
-        "shattered", "tear", "tears", "dukhi", "ro raha", "akelapan", "mayus", "gam", "dard", 
-        "sogam", "sogama", "soham", "azhugai", "varutham", "thunbam", "thuyaram", "thaniya", 
-        "thanimai", "badha", "badhaga", "dhaanyamu", "yedupu", "edupu", "ontarithanam", "ontari", 
-        "nirasah", "nirasa"
-    ],
-    "Positive": [
-        "happy", "good", "great", "joy", "excited", "love", "blessed", "wonderful", "cool",
-        "khush", "acha", "badhiya", "santhosham", "bagundi", "awesome", "joyful", "glad", 
-        "cheerful", "delighted", "amazing", "fantastic", "peaceful", "calm", "satisfied", 
-        "proud", "love it", "achha", "maza", "maaza", "sundar", "anand", "anandit", "magizhchi", 
-        "nalla", "nalladhu", "arputham", "anbu", "nimmadhi", "santhoshama", "santosham", 
-        "chala bagundi", "aanandam", "prashantham", "prasantam", "manchiga", "santhoshanga"
-    ],
+    "Admiration": ["admire", "impress", "respect", "amazing", "wow", "brilliant", "admiration", "arputham", "adbhutam"],
+    "Amusement": ["funny", "hilarious", "laugh", "haha", "lol", "lmao", "amused", "joke", "sirippu", "navvu"],
+    "Anger": ["angry", "mad", "furious", "pissed", "hate", "gussa", "kopam", "kovam", "anger", "rage"],
+    "Annoyance": ["annoyed", "irritating", "bothering", "frustrated", "fed up", "chiraaku", "erichal", "annoyance"],
+    "Approval": ["approve", "agree", "perfect", "good idea", "exactly", "yes", "sahi", "sari", "correct"],
+    "Caring": ["care", "worry about", "support", "here for you", "sympathy", "caring", "fikr"],
+    "Confusion": ["confused", "lost", "don't understand", "huh", "what do you mean", "confusion", "ulappal"],
+    "Curiosity": ["curious", "wonder", "why", "how", "interesting", "curiosity", "aacharyam"],
+    "Desire": ["want", "wish", "need", "crave", "desire", "chah", "aasai", "korika"],
+    "Disappointment": ["disappointed", "let down", "bummer", "sadly", "unfortunate", "niraasa", "ematram"],
+    "Disapproval": ["disapprove", "disagree", "bad idea", "no way", "terrible", "disapproval", "manzoor nahi"],
+    "Disgust": ["disgusting", "gross", "ew", "nasty", "sickening", "yuck", "disgust", "chi", "assehyam"],
+    "Embarrassment": ["embarrassed", "awkward", "humiliated", "cringe", "ashamed", "sharam", "avamanam"],
+    "Excitement": ["excited", "thrilled", "can't wait", "pumped", "yay", "excitement", "utsaha", "kushi"],
+    "Fear": ["fear", "scared", "terrified", "panic", "dread", "darr", "bayam", "bhayam"],
+    "Gratitude": ["thank you", "thanks", "grateful", "appreciate", "blessed", "shukriya", "nandri", "dhanyavadalu"],
+    "Grief": ["grief", "loss", "mourn", "devastated", "heartbroken", "passed away", "shok", "maranam"],
+    "Joy": ["joy", "happy", "glad", "delighted", "khush", "santhosham", "magizhchi", "aanandam"],
+    "Love": ["love", "adore", "affection", "pyaar", "kadhal", "prema", "anbu"],
+    "Nervousness": ["nervous", "anxious", "worried", "uneasy", "tension", "chinta", "kavalai"],
+    "Optimism": ["optimistic", "hopeful", "looking forward", "positive", "confident", "asha"],
+    "Pride": ["proud", "accomplished", "achievement", "success", "garv", "perumai", "garvam"],
+    "Realization": ["realize", "oh", "figured out", "makes sense", "now I see", "samajh aaya"],
+    "Relief": ["relieved", "phew", "thank god", "safe", "glad that's over", "rahat", "nimmadhi"],
+    "Remorse": ["remorse", "sorry", "guilty", "regret", "apologize", "my fault", "pachchatapam"],
+    "Sadness": ["sad", "depressed", "unhappy", "cry", "tears", "udaas", "dukh", "sadness", "sogam"],
+    "Surprise": ["surprise", "shocked", "wow", "unexpected", "omg", "hairani", "aacharyam"],
+    "Neutral": ["okay", "alright", "fine", "nothing", "whatever", "theek", "sari"],
 }
 
 EMOTION_EMOJI = {
-    "Anger":    "😤",
-    "Anxiety":  "😰",
-    "Sadness":  "😔",
-    "Positive": "😊",
-    "Neutral":  "😐",
-    "Crisis":   "🚨",
+    "Admiration": "🤩", "Amusement": "😂", "Anger": "😡", "Annoyance": "😒",
+    "Approval": "👍", "Caring": "🤗", "Confusion": "😕", "Curiosity": "🤔",
+    "Desire": "🤤", "Disappointment": "😞", "Disapproval": "👎", "Disgust": "🤢",
+    "Embarrassment": "😳", "Excitement": "🤩", "Fear": "😨", "Gratitude": "🙏",
+    "Grief": "😭", "Joy": "😄", "Love": "❤️", "Nervousness": "😰",
+    "Optimism": "🤞", "Pride": "😌", "Realization": "💡", "Relief": "😮‍💨",
+    "Remorse": "😔", "Sadness": "😢", "Surprise": "😲", "Neutral": "😐",
+    "Crisis": "🚨"
 }
 
-# Mapping GoEmotions (28 labels) to our 6 core UI categories
+# Mapping GoEmotions (28 labels) directly to their Capitalized UI Categories
 GO_EMOTIONS_MAP = {
-    "admiration": "Positive", "amusement": "Positive", "approval": "Positive", "gratitude": "Positive",
-    "joy": "Positive", "love": "Positive", "optimism": "Positive", "pride": "Positive", "relief": "Positive",
-    "excitement": "Positive", "pride": "Positive",
-    "anger": "Anger", "annoyance": "Anger", "disapproval": "Anger",
-    "fear": "Anxiety", "nervousness": "Anxiety",
-    "sadness": "Sadness", "disappointment": "Sadness", "grief": "Sadness", "remorse": "Sadness",
-    "embarrassment": "Anxiety", "confusion": "Anxiety",
-    "desire": "Positive", "curiosity": "Neutral", "surprise": "Neutral",
-    "neutral": "Neutral", "caring": "Positive"
+    "admiration": "Admiration", "amusement": "Amusement", "anger": "Anger", 
+    "annoyance": "Annoyance", "approval": "Approval", "caring": "Caring",
+    "confusion": "Confusion", "curiosity": "Curiosity", "desire": "Desire",
+    "disappointment": "Disappointment", "disapproval": "Disapproval", "disgust": "Disgust",
+    "embarrassment": "Embarrassment", "excitement": "Excitement", "fear": "Fear",
+    "gratitude": "Gratitude", "grief": "Grief", "joy": "Joy", "love": "Love",
+    "nervousness": "Nervousness", "optimism": "Optimism", "pride": "Pride",
+    "realization": "Realization", "relief": "Relief", "remorse": "Remorse",
+    "sadness": "Sadness", "surprise": "Surprise", "neutral": "Neutral"
 }
 
 @dataclass

@@ -52,6 +52,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
+
       {/* Mobile Top Nav */}
       <header className="flex md:hidden fixed top-0 z-40 justify-between items-center w-full px-5 py-4 animate-fade-in-up bg-white/40 backdrop-blur-xl border-b border-white/50" style={{ animationDelay: '0.1s' }}>
         <div className="flex flex-col">
@@ -170,7 +171,7 @@ export default function DashboardPage() {
       </main>
 
       {/* Mobile Main Content */}
-      <main className="flex md:hidden h-screen w-full max-w-[500px] mx-auto px-4 pb-28 pt-24 flex-col gap-5 overflow-y-auto z-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+      <main className="flex md:hidden w-full max-w-[680px] mx-auto px-4 pb-28 pt-24 flex-col gap-5 overflow-y-auto z-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <section className="w-full bg-white/60 backdrop-blur-2xl border border-white border-b-primary/10 shadow-lg shadow-primary/5 rounded-3xl p-6 flex flex-col relative overflow-hidden transition-all duration-300 hover:shadow-xl">
           <div className="absolute -right-8 -top-8 w-32 h-32 bg-primary/10 rounded-full blur-2xl"></div>
           <h2 className="text-headline-sm font-headline-md text-primary mb-1">How are you feeling today?</h2>
@@ -191,7 +192,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-1">
               <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
             </div>
-            <span className="text-display-sm font-headline-md text-primary text-2xl">5 Days</span>
+            <span className="font-headline-md text-primary text-2xl">5 Days</span>
             <span className="text-[11px] text-on-surface-variant font-label-md uppercase tracking-wider">Current Streak</span>
           </div>
           <div className="bg-white/50 backdrop-blur-xl border border-white shadow-sm rounded-3xl p-5 flex flex-col justify-center items-center gap-1 hover:bg-white/70 transition-colors">
@@ -199,7 +200,7 @@ export default function DashboardPage() {
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-tertiary/10 mix-blend-overlay"></div>
               <span className="material-symbols-outlined text-primary text-[24px]">waves</span>
             </div>
-            <span className="text-display-sm font-headline-md text-primary text-2xl">Balanced</span>
+            <span className="font-headline-md text-primary text-2xl">Balanced</span>
             <span className="text-[11px] text-on-surface-variant font-label-md uppercase tracking-wider">Weekly Mood</span>
           </div>
         </div>
@@ -207,15 +208,14 @@ export default function DashboardPage() {
         <section className="w-full bg-white/50 backdrop-blur-xl border border-white shadow-sm rounded-3xl p-5 flex flex-col gap-4">
           <div className="flex justify-between items-end">
             <div>
-              <h3 className="text-headline-sm font-headline-md text-primary text-lg">Activity Trend</h3>
-              <p className="text-[12px] text-on-surface-variant">Journaling & Voice Sessions</p>
+              <h3 className="text-lg font-headline-md text-primary">Activity Trend</h3>
+              <p className="text-[12px] text-on-surface-variant">Journaling &amp; Voice Sessions</p>
             </div>
             <span className="text-primary bg-primary/10 px-3 py-1 rounded-full text-[11px] font-label-md uppercase tracking-wider">This Week</span>
           </div>
           <div className="flex justify-between items-end h-24 pt-4 px-2">
             {[{h:'40%'}, {h:'60%'}, {h:'90%', a:true}, {h:'30%'}, {h:'75%'}, {h:'15%'}, {h:'20%'}].map((bar, i) => (
-              <div key={i} className={`w-8 rounded-t-lg relative group transition-all ${bar.a ? 'bg-primary/70 hover:bg-primary/90' : 'bg-primary/20 hover:bg-primary/40'}`} style={{ height: bar.h }}>
-              </div>
+              <div key={i} className={`w-8 rounded-t-lg relative group transition-all ${bar.a ? 'bg-primary/70 hover:bg-primary/90' : 'bg-primary/20 hover:bg-primary/40'}`} style={{ height: bar.h }}></div>
             ))}
           </div>
           <div className="flex justify-between items-center px-2 text-[10px] font-label-md text-on-surface-variant/70 uppercase">
@@ -224,7 +224,7 @@ export default function DashboardPage() {
         </section>
 
         <h3 className="text-label-md font-label-md text-on-surface-variant uppercase tracking-widest mt-2 px-1">Quick Actions</h3>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mb-4">
           <Link href="/voice" className="w-full bg-plum-high-contrast text-white p-4 rounded-3xl flex items-center justify-between shadow-lg shadow-plum-high-contrast/20 hover:opacity-95 active:scale-[0.98] transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
@@ -251,7 +251,6 @@ export default function DashboardPage() {
           </Link>
         </div>
       </main>
-
 
     </>
   )

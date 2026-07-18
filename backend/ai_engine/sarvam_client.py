@@ -57,20 +57,13 @@ def chat_with_maitri(
     language_prompt: str = "",
     max_tokens: int = 1500,
     reasoning_effort: str | None = None,
+    is_crisis: bool = False,
 ) -> str:
-    # Build the system prompt with language instruction FIRST
+    # Build the system prompt, keeping the most critical overrides for last
     system_parts = []
     
-    if language_prompt:
-        system_parts.append(
-            f"CRITICAL OVERRIDE:\n{language_prompt}\n"
-            f"STRICT INSTRUCTION: The user has explicitly selected this language. "
-            f"REGARDLESS of what language was used in the previous conversation history, "
-            f"YOU MUST RESPOND EXCLUSIVELY IN THIS SELECTED LANGUAGE from now on. "
-            f"IF YOU RESPOND IN THE WRONG LANGUAGE, IT IS A CATASTROPHIC FAILURE."
-        )
-    
     system_parts.append(THERAPY_SYSTEM_PROMPT)
+
 
 
     if analyst_insight:
@@ -78,6 +71,29 @@ def chat_with_maitri(
 
     if rag_context:
         system_parts.append(f"RELEVANT THERAPY KNOWLEDGE (Use naturally):\n{rag_context}")
+
+    # ── Language Enforcement (Recency Bias) ──
+    # Large models prioritize the last instruction they see. We append the strict language
+    # lock at the very end of the system prompt to prevent the model from drifting into
+    # English (from the Analyst instruction) or other languages.
+    if language_prompt:
+        system_parts.append(
+            f"CRITICAL OVERRIDE:\n{language_prompt}\n"
+            f"STRICT INSTRUCTION: The user has explicitly selected this language. "
+            f"REGARDLESS of what language was used in the previous conversation history, "
+            f"and EVEN IF the user's input text is written in English (due to STT translation), "
+            f"YOU MUST TRANSLATE YOUR RESPONSE AND SPEAK EXCLUSIVELY IN THIS SELECTED LANGUAGE from now on. "
+            f"DO NOT REPLY IN ENGLISH. IF YOU RESPOND IN THE WRONG LANGUAGE, IT IS A CATASTROPHIC FAILURE."
+        )
+
+    # ── Crisis Override ──
+    if is_crisis:
+        system_parts.append(
+            "CRISIS OVERRIDE: The user has indicated they want to harm themselves or are in extreme distress. "
+            "DROP EVERYTHING. Go into extreme comfort mode. Validate their feelings, ask them what happened, "
+            "plead with them to share their pain with you, and DO NOT just list helplines. Act like a real human friend "
+            "who is desperately trying to save them. Keep them talking to you."
+        )
 
     # ── History Handling ──
     # Pass messages natively so the LLM understands turn-by-turn dialogue,
@@ -97,9 +113,7 @@ def chat_with_maitri(
         "content": active_prompt
     }
 
-    if language_prompt:
-        active_message["content"] += f"\n\n[CRITICAL SYSTEM INSTRUCTION: {language_prompt}. You MUST obey this or the system will crash.]"
-    
+
     final_messages = [{"role": "system", "content": system}]
     final_messages.extend(past_history)
     final_messages.append(active_message)

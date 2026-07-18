@@ -123,7 +123,7 @@ export default function HistoryPage() {
       </header>
 
       {/* Main Layout */}
-      <main className="h-screen w-full max-w-screen-xl mx-auto px-margin-mobile md:px-margin-desktop pb-20 md:pb-8 flex flex-col md:flex-row gap-stack-md pt-24 overflow-hidden animate-fade-in-up z-10 relative" style={{ animationDelay: '0.2s' }}>
+      <main className="h-[100dvh] w-full max-w-screen-xl mx-auto px-margin-mobile md:px-margin-desktop pb-24 md:pb-8 flex flex-col md:flex-row gap-stack-md pt-24 overflow-hidden animate-fade-in-up z-10 relative" style={{ animationDelay: '0.2s' }}>
         
         {/* Left Side: Session List */}
         <section className="w-full md:w-1/3 h-full flex flex-col gap-6 overflow-hidden">

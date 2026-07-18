@@ -14,15 +14,41 @@ from api.telemetry import router as telemetry_router
 
 import asyncio
 
+def global_async_exception_handler(loop, context):
+    msg = context.get("exception", context["message"])
+    err = f"[GLOBAL ASYNC SHIELD] Caught unhandled exception: {msg}"
+    print(err)
+    with open("backend_errors.log", "a") as f:
+        f.write(err + "\n")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(global_async_exception_handler)
+    
     app.state.shutdown_event = asyncio.Event()
     print("Starting MindBridge backend (Phase 3 — Voice)...")
-    init_db()
-    print("Database ready")
+    
+    # DB init with retry — handles rapid restart where DB pool is briefly unavailable
+    import time
+    for attempt in range(1, 6):
+        try:
+            init_db()
+            print(f"Database ready (attempt {attempt})")
+            break
+        except Exception as e:
+            print(f"[DB] Init attempt {attempt}/5 failed: {e}")
+            if attempt < 5:
+                time.sleep(1)
+            else:
+                print("[DB] Could not connect after 5 attempts. Proceeding without DB.")
+    
     yield
-    print("Shutting down")
+    print("[SHUTDOWN] Signal received. Setting shutdown event...")
     app.state.shutdown_event.set()
+    # Small wait to let tasks notice the event before force-kill
+    await asyncio.sleep(0.2)
+    print("[SHUTDOWN] Cleanup complete.")
 
 
 app = FastAPI(

@@ -11,12 +11,13 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from db.models import get_db, Session as DBSession, Message, RiskLog, User
+from db.models import get_db, Session as DBSession, Message, MessageEmotion, RiskLog, User
 from ai_engine.voice_client import synthesize_speech, get_language_prompt, get_supported_languages
 from ai_engine.stt_batcher import batch_transcribe_audio
 from ai_engine.sarvam_client import chat_with_maitri
 from ai_engine.emotion_detector import detect_emotion, detect_emotion_heuristic
 from ai_engine.analyst import analyze_context
+from ai_engine.vocal_engine import optimize_pitch
 from services.crisis_handler import check_for_crisis
 from api.auth import get_current_user
 from api.telemetry import broadcast_event
@@ -48,6 +49,8 @@ async def speak(
 ):
     try:
         audio_bytes = await synthesize_speech(req.text, req.language)
+        # Apply Vocal Prosody Optimization
+        audio_bytes = optimize_pitch(audio_bytes, "Neutral")
         return Response(content=audio_bytes, media_type="audio/wav")
     except Exception as e:
         print(f"[VOICE] Speak failed: {type(e).__name__} - {e}")
@@ -124,26 +127,10 @@ async def handle_voice_turn(
         db.add(RiskLog(
             session_id=session.id, user_id=current_user.id,
             trigger_phrase=crisis.trigger_phrase or transcript[:200],
-            system_response=crisis.response, helpline_shown=True,
+            system_response="AI intervened with extreme comfort.", helpline_shown=True,
         ))
         session.is_crisis_flagged = True
-        db.add(Message(session_id=session.id, role="user", content=transcript,
-                       is_crisis_flagged=True, language=language, emotion="Crisis"))
-        db.add(Message(session_id=session.id, role="assistant",
-                       content=crisis.response, is_crisis_flagged=True, language=language))
         db.commit()
-        try:
-            crisis_audio = await synthesize_speech(crisis.response, language)
-            audio_b64 = base64.b64encode(crisis_audio).decode()
-        except Exception as e:
-            print(f"[VOICE] Crisis TTS failed: {e}")
-            audio_b64 = ""
-        return {
-            "transcript": transcript, "response": crisis.response,
-            "audio_b64": audio_b64, "is_crisis": True,
-            "helplines": crisis.helplines, "emotion": "Crisis",
-            "emotion_emoji": "🚨", "emotion_score": 1.0, "rag_used": False,
-        }
 
     # ── Emotion + LLM ────────────────────────────────────────────────────────
     print(f"[VOICE] Computing emotion heuristically and calling LLM...")
@@ -194,6 +181,7 @@ async def handle_voice_turn(
             language_prompt=lang_prompt,
             max_tokens=1500,
             reasoning_effort=None,
+            is_crisis=crisis.is_crisis,
         )
         await broadcast_event("LLM_DONE", "Response generated", {"response": ai_response})
         print(f"[VOICE] LLM response: '{ai_response[:80]}...'")
@@ -203,10 +191,15 @@ async def handle_voice_turn(
 
     # ── Save to DB ────────────────────────────────────────────────────────────
     try:
-        db.add(Message(session_id=session.id, role="user", content=transcript,
-                       language=language, emotion=emotion.label, emotion_score=emotion.score))
-        db.add(Message(session_id=session.id, role="assistant",
-                       content=ai_response, language=language))
+        user_msg = Message(session_id=session.id, role="user", content=transcript, language=language)
+        db.add(user_msg)
+        db.flush()
+
+        if emotion and emotion.label:
+            db.add(MessageEmotion(message_id=user_msg.id, emotion_label=emotion.label, score=emotion.score))
+
+        ai_msg = Message(session_id=session.id, role="assistant", content=ai_response, language=language)
+        db.add(ai_msg)
         db.commit()
     except Exception as e:
         print(f"[VOICE] DB save failed (continuing): {type(e).__name__} - {e}")
@@ -216,13 +209,17 @@ async def handle_voice_turn(
     audio_b64 = ""
     try:
         # Reuse user's emotion to determine voice tone instead of calling HF API again
-        await broadcast_event("ROUTING", "LLM Text -> TTS API")
+        await broadcast_event("ROUTING", "LLM -> TTS API")
         await broadcast_event("TTS_START", "Synthesizing voice...")
         response_audio = await synthesize_speech(
             ai_response, 
             language, 
             emotion=emotion.label
         )
+        # 6. Prosody & Pitch Optimization
+        await broadcast_event("TTS_OPTIMIZE", "Optimizing vocal pitch and prosody...")
+        response_audio = optimize_pitch(response_audio, emotion.label)
+        
         audio_b64 = base64.b64encode(response_audio).decode()
         await broadcast_event("TTS_DONE", "Audio ready")
         await broadcast_event("ROUTING", "FastAPI -> Client WebSocket Playback")
@@ -234,8 +231,8 @@ async def handle_voice_turn(
         "transcript": transcript,
         "response": ai_response,
         "audio_b64": audio_b64,
-        "is_crisis": False,
-        "helplines": [],
+        "is_crisis": crisis.is_crisis,
+        "helplines": crisis.helplines if crisis.is_crisis else [],
         "emotion": emotion.label,
         "emotion_emoji": emotion.emoji,
         "emotion_score": emotion.score,
@@ -266,7 +263,28 @@ async def voice_conversation(
         await broadcast_event("STT_START", "Transcribing (Batched)...")
         transcript = await batch_transcribe_audio(audio_bytes, language)
     except Exception as e:
-        print(f"[VOICE] STT failed: {type(e).__name__} - {e}")
-        raise HTTPException(status_code=500, detail={"message": f"STT failed: {str(e)}"})
+        err_str = str(e)
+        if "duration exceeds the maximum limit" in err_str:
+            print("[VOICE] 30s limit hit. Gracefully prompting user.")
+            msg = "I'm sorry, that was a bit too long for me to process at once. Could you repeat that in shorter pieces?"
+            try:
+                err_audio = await synthesize_speech(msg, language)
+                err_audio = optimize_pitch(err_audio, "Neutral")
+                err_b64 = base64.b64encode(err_audio).decode()
+            except Exception:
+                err_b64 = ""
+            return {
+                "transcript": "[Audio too long]",
+                "response": msg,
+                "audio_b64": err_b64,
+                "is_crisis": False,
+                "helplines": [],
+                "emotion": "Neutral",
+                "emotion_emoji": "😐",
+                "emotion_score": 0.0,
+                "rag_used": False,
+            }
+        print(f"[VOICE] STT failed: {type(e).__name__} - {err_str}")
+        raise HTTPException(status_code=500, detail={"message": f"STT failed: {err_str}"})
 
     return await handle_voice_turn(transcript, session_id, language, current_user, db)

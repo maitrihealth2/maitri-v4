@@ -576,3 +576,10 @@ HTTP EXCEPTION: 401 - Firebase Error: INVALID_LOGIN_CREDENTIALS
 HTTP EXCEPTION: 400 - Email already registered
 HTTP EXCEPTION: 500 - {'message': 'STT failed: STT failed: 400 — {"error":{"message":"Audio duration exceeds the maximum limit of 30 seconds. Please use the batch API for longer audio files.","code":"invalid_request_error","request_id":"20260718_f8431e37-e28c-44ea-946d-476dac77803b"}}'}
 HTTP EXCEPTION: 500 - {'message': 'STT failed: STT failed: 400 — {"error":{"message":"Audio duration exceeds the maximum limit of 30 seconds. Please use the batch API for longer audio files.","code":"invalid_request_error","request_id":"20260718_23ec1b9e-fcb3-4ec6-a9a3-f4556555518b"}}'}
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - User not found
+HTTP EXCEPTION: 401 - Firebase Error: INVALID_LOGIN_CREDENTIALS
