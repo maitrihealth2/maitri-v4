@@ -29,7 +29,7 @@ export default function LoginPage() {
           if (typeof window !== 'undefined' && (window as any).gtag) {
              (window as any).gtag('event', 'login', { method: 'Google' })
           }
-          router.replace('/')
+          window.location.href = '/'
         }
       } catch (err: any) {
         console.error("Redirect Error:", err)
@@ -75,7 +75,7 @@ export default function LoginPage() {
       localStorage.setItem('mb_username', data.username)
       localStorage.setItem('mb_language', 'en-IN')
       sessionStorage.removeItem('mb_session_id')
-      router.replace('/') // Redirect to dashboard
+      window.location.href = '/' // Force hard redirect to dashboard
     } catch (err: any) {
       console.error("API Error:", err)
       setError(err?.response?.data?.detail || err.message || "Something didn't quite work. Please check your details.")
