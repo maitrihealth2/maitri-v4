@@ -294,7 +294,7 @@ export default function ConsultationPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className={`flex-1 min-h-0 flex flex-col w-full max-w-[1200px] md:w-[94vw] lg:w-[90vw] xl:w-[88vw] mx-auto px-margin-mobile relative md:px-8 lg:px-12 pt-20 md:pt-16 pb-24 md:pb-0 z-10 transition-all duration-700 animate-fade-in-up ${exerciseMode ? 'opacity-30 scale-[0.95] blur-[2px] pointer-events-none' : ''}`} style={{ animationDelay: '0.2s' }}>
+      <main className={`flex-1 min-h-0 flex flex-col w-full max-w-[1200px] md:w-[94vw] lg:w-[90vw] xl:w-[88vw] mx-auto px-margin-mobile relative md:px-8 lg:px-12 pt-20 md:pt-16 pb-28 md:pb-6 z-10 transition-all duration-700 animate-fade-in-up ${exerciseMode ? 'opacity-30 scale-[0.95] blur-[2px] pointer-events-none' : ''}`} style={{ animationDelay: '0.2s' }}>
         
         {/* Chat Thread */}
         <div className="flex-1 overflow-y-auto pt-4 pb-stack-lg flex flex-col gap-6 hide-scrollbar pr-2" onClick={() => {setMenuOpen(false); setLangMenuOpen(false);}}>
@@ -356,7 +356,7 @@ export default function ConsultationPage() {
         </div>
 
         {/* Input Bar Section */}
-        <div className="sticky bottom-0 bg-transparent pt-4 pb-safe pb-4 md:pb-8 w-full z-30 pointer-events-none">
+        <div className="sticky bottom-0 bg-transparent pt-4 pb-safe pb-6 md:pb-12 w-full z-30 pointer-events-none">
           <div className="mb-6 md:mb-0 pointer-events-auto flex flex-col items-center w-full">
             
             {/* Animated Quick Replies */}

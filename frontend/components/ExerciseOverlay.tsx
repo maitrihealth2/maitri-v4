@@ -31,21 +31,20 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
     }
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          onClose()
-          return 0
-        }
-        return prev - 1
-      })
+      setTimeLeft(prev => prev - 1)
     }, 1000)
     
     return () => {
       if (breathIntervalRef.current) clearInterval(breathIntervalRef.current)
       clearInterval(timer)
     }
-  }, [exerciseMode, onClose])
+  }, [exerciseMode])
+
+  useEffect(() => {
+    if (exerciseMode && timeLeft <= 0) {
+      onClose()
+    }
+  }, [timeLeft, exerciseMode, onClose])
 
 
 

@@ -584,3 +584,4 @@ HTTP EXCEPTION: 401 - User not found
 HTTP EXCEPTION: 401 - User not found
 HTTP EXCEPTION: 401 - Firebase Error: INVALID_LOGIN_CREDENTIALS
 HTTP EXCEPTION: 404 - Not Found
+[GLOBAL ASYNC SHIELD] Caught unhandled exception: [WinError 10054] An existing connection was forcibly closed by the remote host

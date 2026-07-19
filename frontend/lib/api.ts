@@ -72,3 +72,8 @@ export async function sendVoiceMessage(sessionId: string, formData: FormData) {
     throw err;
   }
 }
+
+export async function getDashboardStats() {
+  const res = await api.get('/api/consultation/dashboard_stats/overview')
+  return res.data
+}

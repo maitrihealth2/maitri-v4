@@ -198,3 +198,42 @@ def get_transcript(
             "emotion_score": m.emotion.score if m.emotion else None,
         } for m in session.messages],
     }
+
+@router.get("/dashboard_stats/overview")
+def get_dashboard_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import func
+    from db.models import UserJournal
+    
+    total_sessions = db.query(func.count(DBSession.id)).filter(DBSession.user_id == current_user.id).scalar() or 0
+    journal_entries = db.query(func.count(UserJournal.id)).filter(UserJournal.user_id == current_user.id).scalar() or 0
+    mindful_minutes = (total_sessions * 15) + (journal_entries * 5)
+    
+    latest_emotion = db.query(MessageEmotion).join(MessageEmotion.message).join(Message.session).filter(
+        DBSession.user_id == current_user.id,
+        Message.role == "user"
+    ).order_by(MessageEmotion.created_at.desc()).first()
+    
+    current_mood = latest_emotion.emotion_label.capitalize() if latest_emotion else "Calm"
+    
+    mood_emojis = {
+        "Joy": "😊", "Calm": "😌", "Sadness": "😔", "Anger": "😠", "Fear": "😨",
+        "Disgust": "🤢", "Surprise": "😲", "Neutral": "😐"
+    }
+    mood_emoji = mood_emojis.get(current_mood, "😌")
+    
+    return {
+        "total_sessions": total_sessions,
+        "journal_entries": journal_entries,
+        "mindful_minutes": mindful_minutes,
+        "current_mood": current_mood,
+        "current_mood_emoji": mood_emoji,
+        "wellness_streak": min(total_sessions + journal_entries, 12),
+        "today_reflection": {
+            "quote": "You do not have to be a fire for every mountain blocking you. You could be a water and soft river your way to freedom too.",
+            "author": "Nayyirah Waheed",
+            "prompt": "Where can you allow yourself to be softer today?"
+        }
+    }

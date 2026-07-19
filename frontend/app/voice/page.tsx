@@ -624,7 +624,7 @@ export default function VoiceModePage() {
         </main>
 
         {/* Controls Footer */}
-        <footer className="w-full pb-8 md:pb-10 pt-4 flex flex-col items-center z-20 fixed bottom-0 bg-gradient-to-t from-[#fff8f5] via-[#fff8f5]/90 to-transparent transition-transform duration-600">
+        <footer className="w-full pb-12 md:pb-16 pt-4 flex flex-col items-center z-20 fixed bottom-0 bg-gradient-to-t from-[#fff8f5] via-[#fff8f5]/90 to-transparent transition-transform duration-600">
             <div className="flex items-center gap-8 md:gap-16 justify-center">
                 <button onClick={toggleMute} disabled={isPaused} className="group flex flex-col items-center gap-2 disabled:opacity-50">
                     <div className={`w-12 h-12 md:w-14 md:h-14 rounded-full border flex items-center justify-center transition-all active:scale-95 shadow-sm backdrop-blur-md ${isMuted ? 'border-error text-error bg-error/10' : 'border-outline/30 text-on-surface-variant group-hover:bg-white/60 group-hover:border-outline/50'}`}>
