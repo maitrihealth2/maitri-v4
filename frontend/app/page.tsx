@@ -118,7 +118,7 @@ export default function DashboardPage() {
       <main className="relative z-10 w-full max-w-[1600px] mx-auto px-4 lg:px-8 pt-20 pb-6 flex flex-col md:flex-row gap-4 lg:gap-6 md:h-[100dvh] overflow-y-auto md:overflow-hidden hide-scrollbar">
         
         {/* COLUMN 1: The Core Experience (Left) */}
-        <section className="flex flex-col flex-none md:w-[30%] lg:w-[28%] gap-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <section className="flex flex-col justify-center flex-none md:w-[30%] lg:w-[28%] gap-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           
           <div className="mb-2 text-center md:text-left pl-2 shrink-0">
             <h1 className="text-display-sm lg:text-display-md font-headline-md text-primary mb-1 tracking-tight leading-tight">
@@ -129,7 +129,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center relative group cursor-pointer" onClick={() => router.push('/voice')}>
+          <div className="flex flex-col items-center justify-center relative group cursor-pointer mt-8" onClick={() => router.push('/voice')}>
             <div className="absolute inset-0 rounded-full border-2 border-primary/20 ring-pulse scale-[0.7] md:scale-[0.8] lg:scale-95 pointer-events-none"></div>
             <div className="absolute inset-0 rounded-full border border-primary/10 ring-pulse scale-[0.8] md:scale-90 lg:scale-110 pointer-events-none" style={{ animationDelay: '1s' }}></div>
             
@@ -144,16 +144,16 @@ export default function DashboardPage() {
               </div>
             </div>
             
-            <div className="mt-6 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 absolute bottom-0 lg:-bottom-4">
+            <div className="mt-6 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 absolute -bottom-8 lg:-bottom-12">
               <span className="bg-primary text-on-primary px-5 py-2.5 rounded-full font-label-md tracking-wider shadow-lg text-xs lg:text-sm">Start Conversation</span>
             </div>
           </div>
         </section>
 
         {/* COLUMN 2: Insights & Suggestions (Middle) */}
-        <section className="flex flex-col flex-1 gap-4 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+        <section className="flex flex-col justify-center flex-1 gap-4 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
           
-          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-500 flex-1">
+          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-500">
             <div className="absolute top-0 right-0 w-32 h-32 bg-secondary-fixed/40 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
             <div className="flex flex-col h-full justify-center">
               <p className="text-[10px] lg:text-xs font-label-md text-on-surface-variant uppercase tracking-widest opacity-70 mb-2 lg:mb-4">Today's Snapshot</p>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-center relative overflow-hidden group cursor-pointer transition-all duration-500 flex-[1.2]" onClick={() => router.push('/consultation')}>
+          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-center relative overflow-hidden group cursor-pointer transition-all duration-500" onClick={() => router.push('/consultation')}>
             <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="flex items-start gap-4 relative z-10 h-full flex-col justify-center">
               <div className="flex items-center gap-2 mb-1">
@@ -193,7 +193,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-center flex-1">
+          <div className="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col justify-center">
             <p className="text-[10px] lg:text-xs font-label-md text-on-surface-variant uppercase tracking-widest opacity-70 mb-2 lg:mb-4">Journey Summary</p>
             <div className="flex flex-col gap-2 lg:gap-3 justify-center h-full px-2">
               <div className="flex justify-between items-center">
@@ -214,7 +214,7 @@ export default function DashboardPage() {
         </section>
 
         {/* COLUMN 3: Actions & Reflections (Right) */}
-        <section className="flex flex-col flex-[1.2] gap-4 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+        <section className="flex flex-col justify-center flex-[1.2] gap-4 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
           
           <div className="grid grid-cols-2 gap-3 lg:gap-4 shrink-0">
             <Link href="/history" className="glass-panel rounded-3xl p-3 lg:p-5 flex flex-col items-center justify-center text-center gap-2 group transition-all duration-500 hover:-translate-y-1">
@@ -258,7 +258,7 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-[2rem] p-5 lg:p-8 relative overflow-hidden flex flex-col justify-between shadow-xl flex-1">
+          <div className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-[2rem] p-5 lg:p-8 relative overflow-hidden flex flex-col justify-between shadow-xl">
             <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=\\'0 0 200 200\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cfilter id=\\'noise\\' x=\\'0\\' y=\\'0\\'%3E%3CfeTurbulence type=\\'fractalNoise\\' baseFrequency=\\'0.65\\' numOctaves=\\'3\\' stitchTiles=\\'stitch\\'/%3E%3C/filter%3E%3Crect width=\\'100%25\\' height=\\'100%25\\' filter=\\'url(%23noise)\\'/%3E%3C/svg%3E')] opacity-[0.05] mix-blend-overlay"></div>
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             

@@ -604,7 +604,7 @@ export default function VoiceModePage() {
                     <div className="absolute inset-0 rounded-full bg-white/30 mix-blend-overlay"></div>
                     <div className="w-16 h-16 rounded-full bg-primary/10 backdrop-blur-sm mix-blend-multiply"></div>
                 </div>
-                <canvas ref={canvasRef} width="256" height="256" className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-400 ${convState === 'listening' || convState === 'speaking' ? 'opacity-100' : 'opacity-0'}`}></canvas>
+                <canvas ref={canvasRef} width="256" height="256" className={`absolute inset-0 w-full h-full object-contain z-20 pointer-events-none transition-opacity duration-400 ${convState === 'listening' || convState === 'speaking' ? 'opacity-100' : 'opacity-0'}`}></canvas>
             </div>
 
             <div className="text-center max-w-lg w-full flex flex-col items-center gap-4 md:gap-6">

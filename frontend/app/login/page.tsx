@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { login, register } from '../../lib/api'
+import Script from 'next/script'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -43,6 +44,15 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
+      <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-DBD64NEBF5" />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-DBD64NEBF5');
+        `}
+      </Script>
       {/* Video Backgrounds */}
       <video autoPlay loop muted playsInline className="hidden md:block fixed inset-0 w-full h-full object-cover z-0 pointer-events-none">
           <source src="/desktop_bg.webm" type="video/webm" />

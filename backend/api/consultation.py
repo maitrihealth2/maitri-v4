@@ -179,7 +179,10 @@ def get_transcript(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    session = db.query(DBSession).filter(
+    from sqlalchemy.orm import joinedload
+    session = db.query(DBSession).options(
+        joinedload(DBSession.messages).joinedload(Message.emotion)
+    ).filter(
         DBSession.session_token == session_id,
         DBSession.user_id == current_user.id,
     ).first()
