@@ -147,7 +147,14 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
           <div className="text-display-lg font-display-lg text-primary font-bold mb-2">{formatTime(timeLeft)}</div>
           <span className="text-label-md text-on-surface-variant">Remaining</span>
         </div>
-        
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-error/30 text-error text-label-md font-label-md hover:bg-error/10 active:scale-95 transition-all duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px]">close</span>
+          End Exercise
+        </button>
 
       </aside>
 
@@ -183,6 +190,14 @@ export default function ExerciseOverlay({ exerciseMode, onClose }: { exerciseMod
           <div className="text-display-lg font-display-lg text-primary font-bold mb-1">{formatTime(timeLeft)}</div>
           <span className="text-label-md text-on-surface-variant">Remaining</span>
         </div>
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-error/30 text-error text-label-md font-label-md hover:bg-error/10 active:scale-95 transition-all duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px]">close</span>
+          End Exercise
+        </button>
 
       </div>
     </>
