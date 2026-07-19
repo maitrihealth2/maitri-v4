@@ -2,7 +2,7 @@ import os
 import httpx
 from fastapi import HTTPException
 
-FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "AIzaSyCWPPqQjCQN5EmvwfdzNHggCU6NWz3wgfk")
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 
 class FirebaseClient:
     def __init__(self, api_key: str = FIREBASE_API_KEY):
