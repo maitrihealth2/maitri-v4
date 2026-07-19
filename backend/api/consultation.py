@@ -173,35 +173,6 @@ def get_history(
              "channel": s.channel} for s in sessions]
 
 
-@router.get("/{session_id}")
-def get_transcript(
-    session_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    from sqlalchemy.orm import joinedload
-    session = db.query(DBSession).options(
-        joinedload(DBSession.messages).joinedload(Message.emotion)
-    ).filter(
-        DBSession.session_token == session_id,
-        DBSession.user_id == current_user.id,
-    ).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    # Using the new ORM relationship defined in models.py, we can just access session.messages
-    # They are already ordered by created_at natively!
-    return {
-        "session_id": session_id,
-        "started_at": session.started_at,
-        "is_crisis_flagged": session.is_crisis_flagged,
-        "messages": [{
-            "role": m.role, "content": m.content,
-            "created_at": m.created_at, "language": m.language,
-            "emotion": m.emotion.emotion_label if m.emotion else None, 
-            "emotion_score": m.emotion.score if m.emotion else None,
-        } for m in session.messages],
-    }
-
 @router.get("/dashboard_stats/overview")
 def get_dashboard_stats(
     current_user: User = Depends(get_current_user),
@@ -239,4 +210,33 @@ def get_dashboard_stats(
             "author": "Nayyirah Waheed",
             "prompt": "Where can you allow yourself to be softer today?"
         }
+    }
+
+@router.get("/{session_id}")
+def get_transcript(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy.orm import joinedload
+    session = db.query(DBSession).options(
+        joinedload(DBSession.messages).joinedload(Message.emotion)
+    ).filter(
+        DBSession.session_token == session_id,
+        DBSession.user_id == current_user.id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    # Using the new ORM relationship defined in models.py, we can just access session.messages
+    # They are already ordered by created_at natively!
+    return {
+        "session_id": session_id,
+        "started_at": session.started_at,
+        "is_crisis_flagged": session.is_crisis_flagged,
+        "messages": [{
+            "role": m.role, "content": m.content,
+            "created_at": m.created_at, "language": m.language,
+            "emotion": m.emotion.emotion_label if m.emotion else None, 
+            "emotion_score": m.emotion.score if m.emotion else None,
+        } for m in session.messages],
     }
