@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { login, register, googleLogin } from '../../lib/api'
 import { auth, googleProvider } from '../../lib/firebase'
-import { signInWithPopup } from 'firebase/auth'
+import { signInWithRedirect, getRedirectResult } from 'firebase/auth'
 import Script from 'next/script'
 
 export default function LoginPage() {
@@ -14,27 +14,41 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          setLoading(true)
+          const idToken = await result.user.getIdToken()
+          const data = await googleLogin(idToken)
+          localStorage.setItem('mb_token', data.access_token)
+          localStorage.setItem('mb_username', data.username)
+          localStorage.setItem('mb_language', 'en-IN')
+          sessionStorage.removeItem('mb_session_id')
+          if (typeof window !== 'undefined' && (window as any).gtag) {
+             (window as any).gtag('event', 'login', { method: 'Google' })
+          }
+          router.replace('/')
+        }
+      } catch (err: any) {
+        console.error("Redirect Error:", err)
+        setError(err?.response?.data?.detail || err.message || "Google Sign-In failed.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    handleRedirectResult()
+  }, [router])
+
   const handleGoogleLogin = async () => {
     try {
       setLoading(true)
       setError('')
-      const result = await signInWithPopup(auth, googleProvider)
-      const idToken = await result.user.getIdToken()
-      
-      const data = await googleLogin(idToken)
-      localStorage.setItem('mb_token', data.access_token)
-      localStorage.setItem('mb_username', data.username)
-      localStorage.setItem('mb_language', 'en-IN')
-      sessionStorage.removeItem('mb_session_id')
-      
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-         (window as any).gtag('event', 'login', { method: 'Google' })
-      }
-      router.replace('/')
+      await signInWithRedirect(auth, googleProvider)
     } catch (err: any) {
-      console.error(err)
-      setError(err?.response?.data?.detail || err.message || "Google Sign-In failed.")
-    } finally {
+      console.error("Google Auth Error:", err)
+      setError(err?.message || "Failed to initialize Google Sign-In.")
       setLoading(false)
     }
   }
@@ -63,7 +77,8 @@ export default function LoginPage() {
       sessionStorage.removeItem('mb_session_id')
       router.replace('/') // Redirect to dashboard
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Something didn't quite work. Please check your details.")
+      console.error("API Error:", err)
+      setError(err?.response?.data?.detail || err.message || "Something didn't quite work. Please check your details.")
     } finally {
       setLoading(false)
     }
