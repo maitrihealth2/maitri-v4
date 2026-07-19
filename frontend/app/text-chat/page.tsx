@@ -238,7 +238,7 @@ export default function ConsultationPage() {
       {/* Desktop Header */}
       <header className="hidden md:flex fixed top-0 z-40 justify-between items-center w-full px-margin-desktop py-4 pointer-events-none animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <div className="flex items-center gap-4 pointer-events-auto">
-          <Link href="/" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all hover:bg-white/80 active:scale-95 shadow-sm">home</Link>
+          <Link href="/home" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all hover:bg-white/80 active:scale-95 shadow-sm">home</Link>
           <span className="text-headline-md font-headline-md font-medium text-primary drop-shadow-md">Mythri</span>
         </div>
         <div className="flex items-center gap-4 relative pointer-events-auto">
@@ -248,10 +248,10 @@ export default function ConsultationPage() {
           
           {/* Dropdown Menu */}
           <nav className={`absolute right-0 top-[100%] mt-2 w-56 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex flex-col p-2 gap-1 origin-top transition-all duration-300 ${menuOpen ? 'scale-y-100 opacity-100 pointer-events-auto' : 'scale-y-0 opacity-0 pointer-events-none'}`}>
-            <Link href="/" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+            <Link href="/home" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
               <span className="material-symbols-outlined text-[20px]">home</span> Sanctuary
             </Link>
-            <Link href="/consultation" className="text-primary font-bold bg-white/80 px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+            <Link href="/text-chat" className="text-primary font-bold bg-white/80 px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
               <span className="material-symbols-outlined text-[20px]">health_and_safety</span> Consultation
             </Link>
             <Link href="/history" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
@@ -279,7 +279,7 @@ export default function ConsultationPage() {
       {/* Mobile Header */}
       <header className="flex md:hidden fixed top-0 z-40 justify-between items-center w-full px-4 py-4 pointer-events-none">
         <div className="flex items-center gap-3 pointer-events-auto">
-          <Link href="/" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all active:scale-95 shadow-sm">home</Link>
+          <Link href="/home" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all active:scale-95 shadow-sm">home</Link>
           <span className="text-headline-md font-headline-md font-medium text-primary drop-shadow-md">Mythri</span>
         </div>
         <div className="flex items-center gap-2 relative pointer-events-auto mr-2">
@@ -383,7 +383,7 @@ export default function ConsultationPage() {
                 disabled={loading}
               />
               <div className="flex items-center gap-1 md:gap-2 pr-1">
-                <button onClick={() => router.push('/voice')} className="material-symbols-outlined text-primary bg-primary/10 md:bg-transparent md:text-outline p-2.5 hover:bg-white/60 rounded-full transition-colors hover:text-primary active:scale-95 shadow-sm md:shadow-none">mic</button>
+                <button onClick={() => router.push('/voice-chat')} className="material-symbols-outlined text-primary bg-primary/10 md:bg-transparent md:text-outline p-2.5 hover:bg-white/60 rounded-full transition-colors hover:text-primary active:scale-95 shadow-sm md:shadow-none">mic</button>
                 <button
                   onClick={() => handleTextSend()}
                   disabled={!input.trim() || loading}

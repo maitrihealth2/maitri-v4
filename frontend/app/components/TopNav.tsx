@@ -43,7 +43,7 @@ export default function TopNav() {
 
   const handleLogout = () => {
     localStorage.removeItem('mb_token')
-    router.replace('/')
+    router.replace('/login')
   }
 
   const navItemClass = "w-full text-left px-4 py-3 text-sm font-label-md hover:bg-surface-container-highest transition-colors flex items-center gap-3"
@@ -55,7 +55,7 @@ export default function TopNav() {
         {/* Logo Area */}
         <div 
           className="pointer-events-auto flex items-center gap-2 cursor-pointer" 
-          onClick={() => router.push('/consultation')}
+          onClick={() => router.push('/text-chat')}
         >
           <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>spa</span>
           <span className="font-headline text-2xl font-bold tracking-tight text-on-background">Maitri</span>
@@ -92,7 +92,7 @@ export default function TopNav() {
         <button 
           onClick={() => { 
              sessionStorage.removeItem('mb_session_id'); 
-             router.push('/consultation');
+             router.push('/text-chat');
              window.dispatchEvent(new Event('mb_new_chat'));
           }}
           className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm ml-1"
@@ -115,15 +115,15 @@ export default function TopNav() {
         {/* Dropdown Menu */}
         {isOpen && (
           <div className="absolute top-14 right-0 w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg overflow-hidden py-2 animate-fade-up">
-            <button onClick={() => { router.push('/'); setIsOpen(false) }} className={navItemClass}>
+            <button onClick={() => { router.push('/home'); setIsOpen(false) }} className={navItemClass}>
               <span className="material-symbols-outlined">home</span>
               Home
             </button>
-            <button onClick={() => { router.push('/consultation'); setIsOpen(false) }} className={navItemClass}>
+            <button onClick={() => { router.push('/text-chat'); setIsOpen(false) }} className={navItemClass}>
               <span className="material-symbols-outlined">chat_bubble</span>
               Text Chat
             </button>
-            <button onClick={() => { router.push('/voice'); setIsOpen(false) }} className={navItemClass}>
+            <button onClick={() => { router.push('/voice-chat'); setIsOpen(false) }} className={navItemClass}>
               <span className="material-symbols-outlined">graphic_eq</span>
               Voice Chat
             </button>

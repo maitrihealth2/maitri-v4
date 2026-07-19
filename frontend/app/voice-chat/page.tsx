@@ -106,7 +106,7 @@ export default function VoiceModePage() {
       sessionStorage.setItem('mb_session_id', data.session_id)
       startVoice()
     } catch {
-      router.replace('/')
+      router.replace('/home')
     }
   }
 
@@ -332,7 +332,7 @@ export default function VoiceModePage() {
 
   const handleStopConversation = () => {
     stopVoice()
-    router.push('/consultation')
+    router.push('/text-chat')
   }
 
   const startChunk = () => {
@@ -558,15 +558,15 @@ export default function VoiceModePage() {
             <div className="flex gap-3 md:gap-4 items-center relative mr-2">
                 <button onClick={() => {setLangMenuOpen(!langMenuOpen); setMainMenuOpen(false)}} className="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">language</button>
                 <button onClick={() => {setMainMenuOpen(!mainMenuOpen); setLangMenuOpen(false)}} className="hidden md:block material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">grid_view</button>
-                <button onClick={() => router.replace('/consultation')} className="md:hidden material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">close</button>
+                <button onClick={() => router.replace('/text-chat')} className="md:hidden material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high p-2 rounded-full transition-colors">close</button>
             </div>
             
             {/* Desktop Main Menu */}
             <nav className={`absolute right-4 md:right-8 top-[100%] mt-2 w-56 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex-col p-2 gap-1 origin-top transition-all duration-300 hidden md:flex ${mainMenuOpen ? 'scale-y-100 opacity-100 pointer-events-auto' : 'scale-y-0 opacity-0 pointer-events-none'}`}>
-                <Link href="/" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                <Link href="/home" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
                     <span className="material-symbols-outlined text-[20px]">home</span> Sanctuary
                 </Link>
-                <Link href="/consultation" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+                <Link href="/text-chat" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
                     <span className="material-symbols-outlined text-[20px]">health_and_safety</span> Consultation
                 </Link>
                 <Link href="/history" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">

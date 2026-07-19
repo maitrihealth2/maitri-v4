@@ -76,12 +76,12 @@ export default function HistoryPage() {
 
   const handleResume = (sessionId: string) => {
     sessionStorage.setItem('mb_session_id', sessionId)
-    router.push('/consultation')
+    router.push('/text-chat')
   }
 
   const handleNewChat = () => {
     sessionStorage.removeItem('mb_session_id')
-    router.push('/consultation')
+    router.push('/text-chat')
   }
 
   return (
@@ -96,16 +96,17 @@ export default function HistoryPage() {
       {/* Header */}
       <header className="fixed top-0 z-40 flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 pointer-events-none animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
         <div className="flex items-center gap-4 pointer-events-auto">
+          <Link href="/home" className="material-symbols-outlined text-primary bg-white/60 backdrop-blur-md border border-white/50 p-2 rounded-full transition-all hover:bg-white/80 active:scale-95 shadow-sm">home</Link>
           <span className="text-headline-md font-headline-md font-medium text-primary">Mythri</span>
         </div>
         <div className="flex items-center gap-4 relative pointer-events-auto">
           <button onClick={() => setMenuOpen(!menuOpen)} className="hidden md:block material-symbols-outlined text-primary hover:bg-surface-container-high p-2 rounded-full transition-all active:scale-95">grid_view</button>
           
           <nav className={`hidden md:flex absolute right-0 top-[100%] mt-2 w-56 bg-white/70 backdrop-blur-3xl border border-white/50 shadow-2xl rounded-2xl flex-col p-2 gap-1 origin-top transition-all duration-300 ${menuOpen ? 'scale-y-100 opacity-100 pointer-events-auto' : 'scale-y-0 opacity-0 pointer-events-none'}`}>
-            <Link href="/" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+            <Link href="/home" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
               <span className="material-symbols-outlined text-[20px]">home</span> Sanctuary
             </Link>
-            <Link href="/consultation" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
+            <Link href="/text-chat" className="text-on-surface-variant hover:bg-white/60 transition-colors px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
               <span className="material-symbols-outlined text-[20px]">health_and_safety</span> Consultation
             </Link>
             <Link href="/history" className="text-primary font-bold bg-white/80 px-4 py-2.5 rounded-xl flex items-center gap-3 font-label-md">
@@ -243,7 +244,7 @@ export default function HistoryPage() {
 
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 w-full z-40 flex justify-around items-center bg-white/70 backdrop-blur-xl py-3 pb-safe shadow-[0_-4px_24px_rgba(0,0,0,0.05)] border-t border-white/40">
-        <Link href="/" className="flex flex-col items-center justify-center text-on-surface-variant/60 w-16 transition-all duration-300 active:scale-90 active:opacity-70 hover:text-primary transition-colors">
+        <Link href="/home" className="flex flex-col items-center justify-center text-on-surface-variant/60 w-16 transition-all duration-300 active:scale-90 active:opacity-70 hover:text-primary transition-colors">
           <span className="material-symbols-outlined text-[24px]">home</span>
           <span className="text-[10px] font-label-md mt-1">Home</span>
         </Link>
@@ -253,7 +254,7 @@ export default function HistoryPage() {
           </div>
           <span className="text-[10px] font-label-md font-bold -mt-2">Journal</span>
         </Link>
-        <Link href="/consultation" className="flex flex-col items-center justify-center text-on-surface-variant/60 w-16 transition-all duration-300 active:scale-90 active:opacity-70 hover:text-primary transition-colors">
+        <Link href="/text-chat" className="flex flex-col items-center justify-center text-on-surface-variant/60 w-16 transition-all duration-300 active:scale-90 active:opacity-70 hover:text-primary transition-colors">
           <span className="material-symbols-outlined text-[24px]">health_and_safety</span>
           <span className="text-[10px] font-label-md mt-1">Chat</span>
         </Link>
