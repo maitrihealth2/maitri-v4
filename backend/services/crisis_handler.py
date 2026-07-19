@@ -31,21 +31,10 @@ CRISIS_PATTERNS = [
     r"(can.t|cannot|won.t).{0,20}(take it|handle|go on|continue)",
 ]
 
-CRISIS_RESPONSE = """I hear you, and I'm really glad you shared this with me.
-What you're feeling right now is real — and you don't have to face it alone.
-
-Please reach out to a counselor right now:
-📞 iCall: 9152987821 (Mon–Sat, 8am–10pm)
-📞 Vandrevala Foundation: 1860-2662-345 (24/7, free)
-📞 NIMHANS: 080-46110007
-
-You matter. This moment is not the end of your story.
-Is there someone close to you you could call right now?"""
+CRISIS_RESPONSE = ""
 
 HELPLINES = [
-    "iCall: 9152987821",
-    "Vandrevala Foundation: 1860-2662-345",
-    "NIMHANS: 080-46110007",
+    "iCall: 9152987821 (24/7)",
 ]
 
 

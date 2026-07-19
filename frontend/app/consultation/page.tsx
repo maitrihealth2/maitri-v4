@@ -21,16 +21,30 @@ interface Message {
 function TypewriterText({ text, animate, onComplete }: { text: string; animate: boolean, onComplete?: () => void }) {
   const [displayed, setDisplayed] = useState(animate ? '' : text)
   const completedRef = useRef(false)
+  const textRef = useRef(text)
+  const onCompleteRef = useRef(onComplete)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
   
+  if (text !== textRef.current) {
+    textRef.current = text
+    completedRef.current = false
+    setDisplayed(animate ? '' : text)
+  }
+
   useEffect(() => {
     if (!animate) {
       setDisplayed(text)
-      if (onComplete && !completedRef.current) {
+      if (onCompleteRef.current && !completedRef.current) {
         completedRef.current = true
-        onComplete()
+        onCompleteRef.current()
       }
       return
     }
+    
+    if (completedRef.current) return;
     
     let currentText = ''
     const words = text.split(/(\s+)/)
@@ -43,15 +57,15 @@ function TypewriterText({ text, animate, onComplete }: { text: string; animate: 
         i++
       } else {
         clearInterval(interval)
-        if (onComplete && !completedRef.current) {
+        if (!completedRef.current) {
           completedRef.current = true
-          onComplete()
+          if (onCompleteRef.current) onCompleteRef.current()
         }
       }
     }, 50)
     
     return () => clearInterval(interval)
-  }, [text, animate, onComplete])
+  }, [text, animate])
 
   return <>{displayed}</>
 }
@@ -130,7 +144,7 @@ export default function ConsultationPage() {
 
   const initSession = async () => {
     try {
-      const existingSessionId = localStorage.getItem('mb_session_id')
+      const existingSessionId = sessionStorage.getItem('mb_session_id')
       if (existingSessionId) {
         try {
           const data = await getTranscript(existingSessionId)
@@ -147,7 +161,7 @@ export default function ConsultationPage() {
 
       const data = await startSession()
       setSessionId(data.session_id)
-      localStorage.setItem('mb_session_id', data.session_id)
+      sessionStorage.setItem('mb_session_id', data.session_id)
       
       const currentLang = localStorage.getItem('mb_language') || 'en-IN'
       const welcome = WELCOME_MSGS[currentLang] || WELCOME_MSGS['en-IN']
@@ -203,7 +217,7 @@ export default function ConsultationPage() {
   }
 
   const handleNewChat = () => {
-    localStorage.removeItem('mb_session_id')
+    sessionStorage.removeItem('mb_session_id')
     setSessionId(null)
     setMessages([])
     setStarting(true)

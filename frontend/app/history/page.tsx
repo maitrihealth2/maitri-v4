@@ -75,12 +75,12 @@ export default function HistoryPage() {
   }
 
   const handleResume = (sessionId: string) => {
-    localStorage.setItem('mb_session_id', sessionId)
+    sessionStorage.setItem('mb_session_id', sessionId)
     router.push('/consultation')
   }
 
   const handleNewChat = () => {
-    localStorage.removeItem('mb_session_id')
+    sessionStorage.removeItem('mb_session_id')
     router.push('/consultation')
   }
 

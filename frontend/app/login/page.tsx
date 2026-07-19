@@ -32,7 +32,7 @@ export default function LoginPage() {
       localStorage.setItem('mb_token', data.access_token)
       localStorage.setItem('mb_username', data.username)
       localStorage.setItem('mb_language', 'en-IN')
-      localStorage.removeItem('mb_session_id')
+      sessionStorage.removeItem('mb_session_id')
       router.replace('/') // Redirect to dashboard
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Something didn't quite work. Please check your details.")

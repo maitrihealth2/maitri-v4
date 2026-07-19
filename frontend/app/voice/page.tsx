@@ -88,7 +88,7 @@ export default function VoiceModePage() {
 
   const initSession = async () => {
     try {
-      const existingSessionId = localStorage.getItem('mb_session_id')
+      const existingSessionId = sessionStorage.getItem('mb_session_id')
       if (existingSessionId) {
          try {
              await getTranscript(existingSessionId)
@@ -103,7 +103,7 @@ export default function VoiceModePage() {
       const data = await startSession()
       setSessionId(data.session_id)
       sessionIdRef.current = data.session_id
-      localStorage.setItem('mb_session_id', data.session_id)
+      sessionStorage.setItem('mb_session_id', data.session_id)
       startVoice()
     } catch {
       router.replace('/')

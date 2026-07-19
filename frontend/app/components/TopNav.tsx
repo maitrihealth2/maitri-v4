@@ -91,7 +91,7 @@ export default function TopNav() {
         {/* New Chat Button */}
         <button 
           onClick={() => { 
-             localStorage.removeItem('mb_session_id'); 
+             sessionStorage.removeItem('mb_session_id'); 
              router.push('/consultation');
              window.dispatchEvent(new Event('mb_new_chat'));
           }}

@@ -89,10 +89,12 @@ def chat_with_maitri(
     # ── Crisis Override ──
     if is_crisis:
         system_parts.append(
-            "CRISIS OVERRIDE: The user has indicated they want to harm themselves or are in extreme distress. "
-            "DROP EVERYTHING. Go into extreme comfort mode. Validate their feelings, ask them what happened, "
-            "plead with them to share their pain with you, and DO NOT just list helplines. Act like a real human friend "
-            "who is desperately trying to save them. Keep them talking to you."
+            "CRISIS OVERRIDE: The user has indicated they want to harm themselves, end their life, or are in extreme distress. "
+            "DROP EVERYTHING. You must respond as a deeply caring human friend holding their hand. "
+            "DO NOT sound like a robotic hotline dispatcher or list multiple helplines. "
+            "Instead, naturally weave this specific message into your caring response: "
+            "'Hey... I'm right here with you. You're not alone in this moment. I really want you to talk to someone who can help properly too -- can I give you a number? iCall is 9152987821, they're there 24/7 and they actually care. Just breathe for a second, I'm not going anywhere. What you're feeling right now is temporary, even if it doesn't feel like it.' "
+            "Get to know what is happening, follow therapy principles, but talk exactly like a friend."
         )
 
     # ── History Handling ──
