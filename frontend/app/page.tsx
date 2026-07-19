@@ -87,7 +87,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Navigation */}
-      <header className="fixed top-0 z-40 w-full px-5 md:px-8 py-5 flex justify-between items-center transition-all animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+      <header className="fixed top-0 z-40 w-full px-5 md:px-8 py-4 lg:py-5 flex justify-between items-center transition-all animate-fade-in-up glass-panel border-b border-white/60" style={{ animationDelay: '0.1s' }}>
         <div className="flex items-center gap-4">
           <span className="text-headline-md font-headline-md font-medium text-primary tracking-wide">Mythri</span>
         </div>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content - Single Screen on Desktop */}
-      <main className="relative z-10 w-full max-w-[1600px] mx-auto px-4 lg:px-8 pt-20 pb-6 flex flex-col md:flex-row gap-4 lg:gap-6 md:h-[100dvh] overflow-y-auto md:overflow-hidden hide-scrollbar">
+      <main className="relative z-10 w-full max-w-[1600px] mx-auto px-4 lg:px-8 pt-20 pb-24 md:pb-6 flex flex-col md:flex-row gap-4 lg:gap-6 md:h-[100dvh] overflow-y-auto md:overflow-hidden hide-scrollbar">
         
         {/* COLUMN 1: The Core Experience (Left) */}
         <section className="flex flex-col justify-center flex-none md:w-[30%] lg:w-[28%] gap-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
@@ -284,6 +284,9 @@ export default function DashboardPage() {
           </div>
 
         </section>
+        
+        {/* Mobile Spacer for BottomNav */}
+        <div className="h-28 w-full md:hidden shrink-0"></div>
 
       </main>
     </>

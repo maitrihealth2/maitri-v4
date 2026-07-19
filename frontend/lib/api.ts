@@ -24,6 +24,11 @@ export async function login(email: string, password: string) {
   return res.data
 }
 
+export async function googleLogin(idToken: string) {
+  const res = await api.post('/api/auth/google', { idToken })
+  return res.data
+}
+
 export async function getMe() {
   const res = await api.get('/api/auth/me')
   return res.data

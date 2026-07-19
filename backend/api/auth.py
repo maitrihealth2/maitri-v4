@@ -21,6 +21,9 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    idToken: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -72,6 +75,55 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
         
     token = create_access_token({"user_id": user.id, "username": user.username})
     return TokenResponse(access_token=token, username=user.username)
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(req: GoogleLoginRequest, db: Session = Depends(get_db)):
+    from services.firebase_rest import FIREBASE_API_KEY
+    import httpx
+    
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_API_KEY}"
+    payload = {"idToken": req.idToken}
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload)
+        data = response.json()
+        
+        if not response.is_success or "users" not in data or len(data["users"]) == 0:
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+            
+        google_user = data["users"][0]
+        email = google_user.get("email")
+        display_name = google_user.get("displayName", "User")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Google account has no email")
+            
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            base_username = display_name.replace(" ", "").lower()
+            if not base_username:
+                base_username = email.split("@")[0]
+            
+            username = base_username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+                
+            user = User(
+                username=username,
+                email=email,
+                hashed_password="firebase_google_managed",
+                preferred_language="en-IN"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+        token = create_access_token({"user_id": user.id, "username": user.username})
+        return TokenResponse(access_token=token, username=user.username)
 
 
 @router.get("/me")
