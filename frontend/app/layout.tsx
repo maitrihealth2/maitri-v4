@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Literata } from 'next/font/google'
+import Script from 'next/script'
 import { Providers } from './providers'
 import BottomNav from './components/BottomNav'
 import './globals.css'
@@ -23,6 +24,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
       <body className={`${literata.variable} font-body-md antialiased bg-immersive min-h-[100dvh] flex flex-col text-on-background relative md:h-[100dvh] md:overflow-hidden`}>
+        {/* Google Analytics */}
+        <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-DBD64NEBF5" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-DBD64NEBF5');
+          `}
+        </Script>
+
         {/* Background Grain and Ambient Blobs */}
         <div className="bg-grain"></div>
         {/* Desktop Blobs (hidden on small) */}
