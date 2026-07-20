@@ -72,26 +72,39 @@ export async function getTranscript(sessionId: string) {
 }
 
 export async function sendVoiceMessage(sessionId: string, formData: FormData) {
-  try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : null;
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+  const MAX_RETRIES = 3
+  const RETRY_DELAY_MS = 2000
 
-    const res = await fetch(`${API_URL}/api/voice/conversation`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mb_token') : null
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Fetch failed with status ${res.status}: ${errText}`);
+      const res = await fetch(`${API_URL}/api/voice/conversation`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Fetch failed with status ${res.status}: ${errText}`)
+      }
+
+      return await res.json()
+    } catch (err: any) {
+      // Only retry on pure network errors (server sleeping / unreachable).
+      // HTTP errors (4xx/5xx) are real errors — don't retry those.
+      const isNetworkError = err.message === 'Failed to fetch'
+      if (isNetworkError && attempt < MAX_RETRIES) {
+        console.warn(`[Voice] Network error on attempt ${attempt}/${MAX_RETRIES}, retrying in ${RETRY_DELAY_MS}ms...`)
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
+        continue
+      }
+      console.error('FETCH ERROR DETAILED:', err.message)
+      throw err
     }
-
-    return await res.json();
-  } catch (err: any) {
-    console.error("FETCH ERROR DETAILED:", err.message);
-    throw err;
   }
 }
 
